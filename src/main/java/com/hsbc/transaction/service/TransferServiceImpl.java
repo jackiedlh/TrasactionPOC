@@ -2,6 +2,7 @@ package com.hsbc.transaction.service;
 
 import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionDirection;
+import com.hsbc.transaction.model.TransactionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +34,7 @@ public class TransferServiceImpl implements TransferService {
                     .amount(amount)
                     .description(description + " - Transfer to " + toAccount)
                     .direction(TransactionDirection.OUT)
-                    .status("COMPLETED")
+                    .status(TransactionStatus.RUNNING)
                     .build();
 
             // Create credit transaction record
@@ -42,7 +43,7 @@ public class TransferServiceImpl implements TransferService {
                     .amount(amount)
                     .description(description + " - Transfer from " + fromAccount)
                     .direction(TransactionDirection.IN)
-                    .status("COMPLETED")
+                    .status(TransactionStatus.RUNNING)
                     .build();
 
             // Record both transactions

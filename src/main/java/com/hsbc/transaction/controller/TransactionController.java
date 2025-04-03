@@ -47,13 +47,5 @@ public class TransactionController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/direction/{direction}")
-    public ResponseEntity<List<Transaction>> getTransactionsByDirection(@PathVariable String direction) {
-        return ResponseEntity.ok(transactionService.getTransactionsByDirection(direction));
-    }
 
-    @GetMapping("/account/{accountNo}/balance")
-    public ResponseEntity<BigDecimal> getAccountBalance(@PathVariable String accountNo) {
-        return ResponseEntity.ok(transactionService.getAccountBalance(accountNo));
-    }
 } 

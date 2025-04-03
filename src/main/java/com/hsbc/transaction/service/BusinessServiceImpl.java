@@ -2,6 +2,7 @@ package com.hsbc.transaction.service;
 
 import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionDirection;
+import com.hsbc.transaction.model.TransactionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,11 +22,6 @@ public class BusinessServiceImpl implements BusinessService {
     @Transactional
     public synchronized void transfer(String fromAccount, String toAccount, BigDecimal amount, String description) {
         try {
-            // First debit from source account (this will check for sufficient balance)
-            accountService.debit(fromAccount, amount);
-            
-            // Then credit to destination account
-            accountService.credit(toAccount, amount);
 
             // Create debit transaction record
             Transaction debitTransaction = Transaction.builder()
@@ -33,7 +29,7 @@ public class BusinessServiceImpl implements BusinessService {
                     .amount(amount)
                     .description(description + " - Transfer to " + toAccount)
                     .direction(TransactionDirection.OUT)
-                    .status("COMPLETED")
+                    .status(TransactionStatus.RUNNING)
                     .build();
 
             // Create credit transaction record
@@ -42,19 +38,18 @@ public class BusinessServiceImpl implements BusinessService {
                     .amount(amount)
                     .description(description + " - Transfer from " + fromAccount)
                     .direction(TransactionDirection.IN)
-                    .status("COMPLETED")
+                    .status(TransactionStatus.RUNNING)
                     .build();
 
             // Record both transactions
             transactionService.createTransaction(debitTransaction);
             transactionService.createTransaction(creditTransaction);
+
+            transactionService.updateTransactionStatus(debitTransaction.getTransactionId(),TransactionStatus.SUCCESS);
+            transactionService.updateTransactionStatus(creditTransaction.getTransactionId(),TransactionStatus.SUCCESS);
+
+
         } catch (Exception e) {
-            // If anything fails, try to rollback the debit operation
-            try {
-                accountService.credit(fromAccount, amount);
-            } catch (Exception rollbackException) {
-                throw new RuntimeException("Transfer failed and rollback failed. Account states may be inconsistent", rollbackException);
-            }
             throw new RuntimeException("Transfer failed: " + e.getMessage(), e);
         }
     }
