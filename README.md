@@ -6,7 +6,8 @@ A simple Spring Boot application for managing financial transactions within a ba
 
 - Create, read, update, and delete transactions
 - List all transactions
-- Filter transactions by type
+- Filter transactions by direction (IN/OUT)
+- Automatic account balance management
 - In-memory data storage with caching
 - Input validation
 - Exception handling
@@ -42,7 +43,8 @@ You can use the Swagger UI to:
 - GET `/api/transactions/{id}` - Get a specific transaction
 - PUT `/api/transactions/{id}` - Update a transaction
 - DELETE `/api/transactions/{id}` - Delete a transaction
-- GET `/api/transactions/type/{type}` - Get transactions by type
+- GET `/api/transactions/direction/{direction}` - Get transactions by direction (IN/OUT)
+- GET `/api/transactions/account/{accountNo}/balance` - Get account balance
 
 ## Building and Running
 
@@ -66,8 +68,9 @@ curl -X POST http://localhost:8080/api/transactions \
   -H "Content-Type: application/json" \
   -d '{
     "amount": 100.50,
+    "accountNo": "12345678901",
     "description": "Payment for services",
-    "type": "PAYMENT",
+    "direction": "OUT",
     "status": "COMPLETED"
   }'
 ```
@@ -76,6 +79,25 @@ curl -X POST http://localhost:8080/api/transactions \
 ```bash
 curl http://localhost:8080/api/transactions
 ```
+
+### Get Transactions by Direction
+```bash
+curl http://localhost:8080/api/transactions/direction/OUT
+```
+
+### Get Account Balance
+```bash
+curl http://localhost:8080/api/transactions/account/12345678901/balance
+```
+
+## Account Balance Management
+
+The service automatically manages account balances based on transaction directions:
+- IN: Amount is added to the account balance
+- OUT: Amount is subtracted from the account balance
+
+Account balances are initialized to 0 when the first transaction is made for a new account.
+All balance updates are atomic and thread-safe using ConcurrentHashMap.
 
 ## Error Handling
 

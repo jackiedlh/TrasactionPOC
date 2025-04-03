@@ -2,6 +2,7 @@ package com.hsbc.transaction.service;
 
 import com.hsbc.transaction.exception.TransactionNotFoundException;
 import com.hsbc.transaction.model.Transaction;
+import com.hsbc.transaction.model.TransactionDirection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -21,8 +22,9 @@ class TransactionServiceImplTest {
         transactionService = new TransactionServiceImpl();
         testTransaction = Transaction.builder()
                 .amount(new BigDecimal("100.50"))
+                .accountNo("12345678901")
                 .description("Test Transaction")
-                .type("PAYMENT")
+                .direction(TransactionDirection.OUT)
                 .status("PENDING")
                 .build();
     }
@@ -34,8 +36,9 @@ class TransactionServiceImplTest {
 
         assertNotNull(created.getId(), "Transaction ID should not be null");
         assertEquals(testTransaction.getAmount(), created.getAmount());
+        assertEquals(testTransaction.getAccountNo(), created.getAccountNo());
         assertEquals(testTransaction.getDescription(), created.getDescription());
-        assertEquals(testTransaction.getType(), created.getType());
+        assertEquals(testTransaction.getDirection(), created.getDirection());
         assertEquals(testTransaction.getStatus(), created.getStatus());
     }
 
@@ -47,7 +50,9 @@ class TransactionServiceImplTest {
 
         assertEquals(created.getId(), retrieved.getId());
         assertEquals(created.getAmount(), retrieved.getAmount());
+        assertEquals(created.getAccountNo(), retrieved.getAccountNo());
         assertEquals(created.getDescription(), retrieved.getDescription());
+        assertEquals(created.getDirection(), retrieved.getDirection());
     }
 
     @Test
@@ -65,8 +70,9 @@ class TransactionServiceImplTest {
         transactionService.createTransaction(testTransaction);
         transactionService.createTransaction(Transaction.builder()
                 .amount(new BigDecimal("200.00"))
+                .accountNo("98765432100")
                 .description("Second Transaction")
-                .type("DEPOSIT")
+                .direction(TransactionDirection.IN)
                 .status("COMPLETED")
                 .build());
 
@@ -89,8 +95,9 @@ class TransactionServiceImplTest {
 
         Transaction updateData = Transaction.builder()
                 .amount(new BigDecimal("150.75"))
+                .accountNo("11122233344")
                 .description("Updated Transaction")
-                .type("PAYMENT")
+                .direction(TransactionDirection.IN)
                 .status("COMPLETED")
                 .build();
 
@@ -98,7 +105,9 @@ class TransactionServiceImplTest {
 
         assertEquals(id, updated.getId(), "ID should remain the same");
         assertEquals(new BigDecimal("150.75"), updated.getAmount());
+        assertEquals("11122233344", updated.getAccountNo());
         assertEquals("Updated Transaction", updated.getDescription());
+        assertEquals(TransactionDirection.IN, updated.getDirection());
         assertEquals("COMPLETED", updated.getStatus());
     }
 
@@ -131,35 +140,37 @@ class TransactionServiceImplTest {
     }
 
     @Test
-    @DisplayName("Should retrieve transactions by type successfully")
-    void getTransactionsByType_ShouldRetrieveSuccessfully() {
-        // Create transactions with different types
-        transactionService.createTransaction(testTransaction); // PAYMENT
+    @DisplayName("Should retrieve transactions by direction successfully")
+    void getTransactionsByDirection_ShouldRetrieveSuccessfully() {
+        // Create transactions with different directions
+        transactionService.createTransaction(testTransaction); // OUT
         transactionService.createTransaction(Transaction.builder()
                 .amount(new BigDecimal("200.00"))
+                .accountNo("55566677788")
                 .description("Deposit Transaction")
-                .type("DEPOSIT")
+                .direction(TransactionDirection.IN)
                 .status("COMPLETED")
                 .build());
         transactionService.createTransaction(Transaction.builder()
                 .amount(new BigDecimal("300.00"))
+                .accountNo("99988877766")
                 .description("Another Payment")
-                .type("PAYMENT")
+                .direction(TransactionDirection.OUT)
                 .status("COMPLETED")
                 .build());
 
-        List<Transaction> paymentTransactions = transactionService.getTransactionsByType("PAYMENT");
+        List<Transaction> outgoingTransactions = transactionService.getTransactionsByDirection(TransactionDirection.OUT.name());
         
-        assertEquals(2, paymentTransactions.size(), "Should return 2 PAYMENT transactions");
-        assertTrue(paymentTransactions.stream()
-                .allMatch(t -> "PAYMENT".equals(t.getType())),
-                "All transactions should be of type PAYMENT");
+        assertEquals(2, outgoingTransactions.size(), "Should return 2 OUT transactions");
+        assertTrue(outgoingTransactions.stream()
+                .allMatch(t -> TransactionDirection.OUT.equals(t.getDirection())),
+                "All transactions should be of direction OUT");
     }
 
     @Test
-    @DisplayName("Should return empty list for non-existent transaction type")
-    void getTransactionsByType_ShouldReturnEmptyList_WhenTypeNotFound() {
-        List<Transaction> transactions = transactionService.getTransactionsByType("NON_EXISTENT_TYPE");
-        assertTrue(transactions.isEmpty(), "Should return empty list for non-existent type");
+    @DisplayName("Should return empty list for non-existent transaction direction")
+    void getTransactionsByDirection_ShouldReturnEmptyList_WhenDirectionNotFound() {
+        List<Transaction> transactions = transactionService.getTransactionsByDirection("INVALID_DIRECTION");
+        assertTrue(transactions.isEmpty(), "Should return empty list for non-existent direction");
     }
 } 

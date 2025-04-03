@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -46,8 +47,13 @@ public class TransactionController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/type/{type}")
-    public ResponseEntity<List<Transaction>> getTransactionsByType(@PathVariable String type) {
-        return ResponseEntity.ok(transactionService.getTransactionsByType(type));
+    @GetMapping("/direction/{direction}")
+    public ResponseEntity<List<Transaction>> getTransactionsByDirection(@PathVariable String direction) {
+        return ResponseEntity.ok(transactionService.getTransactionsByDirection(direction));
+    }
+
+    @GetMapping("/account/{accountNo}/balance")
+    public ResponseEntity<BigDecimal> getAccountBalance(@PathVariable String accountNo) {
+        return ResponseEntity.ok(transactionService.getAccountBalance(accountNo));
     }
 } 
