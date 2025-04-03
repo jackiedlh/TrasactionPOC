@@ -1,4 +1,4 @@
-package com.hsbc.transaction.service;
+package com.hsbc.transaction.service.impl;
 
 import com.hsbc.transaction.exception.InsufficientBalanceException;
 import org.junit.jupiter.api.BeforeEach;

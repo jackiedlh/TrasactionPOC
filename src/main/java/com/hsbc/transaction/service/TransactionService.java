@@ -2,6 +2,9 @@ package com.hsbc.transaction.service;
 
 import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionStatus;
+import com.hsbc.transaction.model.PageResponse;
+import com.hsbc.transaction.model.TransactionFilter;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -37,9 +40,33 @@ public interface TransactionService {
      */
     List<Transaction> getTransactionsByAccount(String accountNo);
 
+    /**
+     * Get a transaction by ID
+     * @param id The transaction ID
+     * @return The transaction
+     */
     Transaction getTransaction(String id);
-    List<Transaction> getAllTransactions();
-    Transaction updateTransaction(String id, Transaction transaction);
-    void deleteTransaction(String id);
 
+    /**
+     * Query transactions with optional filters and pagination
+     * @param filter Optional filters for transactions
+     * @param page The page number (0-based)
+     * @param size The page size
+     * @return PageResponse containing the filtered transactions and pagination information
+     */
+    PageResponse<Transaction> queryTransactions(TransactionFilter filter, int page, int size);
+
+    /**
+     * Update an existing transaction
+     * @param id The transaction ID
+     * @param transaction The updated transaction data
+     * @return The updated transaction
+     */
+    Transaction updateTransaction(String id, Transaction transaction);
+
+    /**
+     * Delete a transaction
+     * @param id The transaction ID
+     */
+    void deleteTransaction(String id);
 } 

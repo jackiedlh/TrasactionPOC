@@ -1,17 +1,24 @@
 package com.hsbc.transaction.controller;
 
 import com.hsbc.transaction.model.Transaction;
+import com.hsbc.transaction.model.TransactionStatus;
+import com.hsbc.transaction.model.TransactionDirection;
+import com.hsbc.transaction.model.PageResponse;
+import com.hsbc.transaction.model.TransactionFilter;
 import com.hsbc.transaction.service.TransactionService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/transactions")
+@Tag(name = "Transaction Controller", description = "APIs for managing transactions")
 public class TransactionController {
     private final TransactionService transactionService;
 
@@ -20,32 +27,79 @@ public class TransactionController {
     }
 
     @PostMapping
-    public ResponseEntity<Transaction> createTransaction(@Valid @RequestBody Transaction transaction) {
-        return new ResponseEntity<>(transactionService.createTransaction(transaction), HttpStatus.CREATED);
+    @Operation(summary = "Create a new transaction")
+    public ResponseEntity<Transaction> createTransaction(@RequestBody Transaction transaction) {
+        return ResponseEntity.ok(transactionService.createTransaction(transaction));
+    }
+
+    @PutMapping("/{id}/status")
+    @Operation(summary = "Update transaction status")
+    public ResponseEntity<Transaction> updateTransactionStatus(
+            @PathVariable String id,
+            @RequestParam TransactionStatus status) {
+        return ResponseEntity.ok(transactionService.updateTransactionStatus(id, status));
+    }
+
+    @GetMapping("/account/{accountNo}")
+    @Operation(summary = "Get all transactions for an account")
+    public ResponseEntity<List<Transaction>> getTransactionsByAccount(
+            @PathVariable String accountNo) {
+        return ResponseEntity.ok(transactionService.getTransactionsByAccount(accountNo));
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get a transaction by ID")
     public ResponseEntity<Transaction> getTransaction(@PathVariable String id) {
         return ResponseEntity.ok(transactionService.getTransaction(id));
     }
 
     @GetMapping
-    public ResponseEntity<List<Transaction>> getAllTransactions() {
-        return ResponseEntity.ok(transactionService.getAllTransactions());
+    @Operation(summary = "Query transactions with optional filters and pagination")
+    public ResponseEntity<PageResponse<Transaction>> queryTransactions(
+            @Parameter(description = "Account number to filter by")
+            @RequestParam(required = false) String accountNo,
+            @Parameter(description = "Transaction direction to filter by")
+            @RequestParam(required = false) TransactionDirection direction,
+            @Parameter(description = "Transaction status to filter by")
+            @RequestParam(required = false) TransactionStatus status,
+            @Parameter(description = "Minimum amount to filter by")
+            @RequestParam(required = false) BigDecimal minAmount,
+            @Parameter(description = "Maximum amount to filter by")
+            @RequestParam(required = false) BigDecimal maxAmount,
+            @Parameter(description = "Start date to filter by")
+            @RequestParam(required = false) LocalDateTime fromDate,
+            @Parameter(description = "End date to filter by")
+            @RequestParam(required = false) LocalDateTime toDate,
+            @Parameter(description = "Page number (0-based)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size")
+            @RequestParam(defaultValue = "10") int size) {
+        
+        TransactionFilter filter = TransactionFilter.builder()
+                .accountNo(accountNo)
+                .direction(direction)
+                .status(status)
+                .minAmount(minAmount)
+                .maxAmount(maxAmount)
+                .fromDate(fromDate)
+                .toDate(toDate)
+                .build();
+
+        return ResponseEntity.ok(transactionService.queryTransactions(filter, page, size));
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update an existing transaction")
     public ResponseEntity<Transaction> updateTransaction(
             @PathVariable String id,
-            @Valid @RequestBody Transaction transaction) {
+            @RequestBody Transaction transaction) {
         return ResponseEntity.ok(transactionService.updateTransaction(id, transaction));
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a transaction")
     public ResponseEntity<Void> deleteTransaction(@PathVariable String id) {
         transactionService.deleteTransaction(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().build();
     }
-
-
 } 
