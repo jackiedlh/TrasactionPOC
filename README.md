@@ -11,6 +11,7 @@ A simple Spring Boot application for managing financial transactions within a ba
 - Input validation
 - Exception handling
 - RESTful API design
+- Interactive API documentation with Swagger UI
 
 ## Technologies
 
@@ -19,6 +20,20 @@ A simple Spring Boot application for managing financial transactions within a ba
 - Maven
 - Spring Cache
 - Lombok
+- SpringDoc OpenAPI (Swagger)
+
+## API Documentation
+
+The API documentation is available through Swagger UI when the application is running:
+
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- OpenAPI Specification: http://localhost:8080/api-docs
+
+You can use the Swagger UI to:
+- Explore available endpoints
+- View request/response schemas
+- Test API endpoints directly from the browser
+- Download the OpenAPI specification
 
 ## API Endpoints
 
