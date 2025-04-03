@@ -1,13 +1,13 @@
 package com.hsbc.transaction.service.impl;
 
-import com.hsbc.transaction.model.Transaction;
-import com.hsbc.transaction.model.TransactionStatus;
-import com.hsbc.transaction.model.PageResponse;
-import com.hsbc.transaction.model.TransactionFilter;
+import com.hsbc.transaction.exception.TransactionFailedException;
+import com.hsbc.transaction.model.*;
+import com.hsbc.transaction.service.AccountService;
 import com.hsbc.transaction.service.TransactionService;
 import com.hsbc.transaction.exception.TransactionNotFoundException;
 import com.hsbc.transaction.exception.InvalidTransactionStateException;
 import com.hsbc.transaction.exception.InvalidTransactionException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
@@ -26,6 +26,11 @@ public class TransactionServiceImpl implements TransactionService {
     private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
     private final Map<String, Transaction> transactionStore = new ConcurrentHashMap<>();
     private final Map<String, Lock> transactionLocks = new ConcurrentHashMap<>();
+
+
+
+    @Autowired
+    private AccountService accountService;
 
     @Override
     public String generateTransactionId() {
@@ -64,11 +69,27 @@ public class TransactionServiceImpl implements TransactionService {
                 transactionId, transaction.getStatus(), status);
             
             transaction.setStatus(status);
+            if (status == TransactionStatus.SUCCESS) {
+                updateAccountBalance(transaction);
+            }
             transactionStore.put(transactionId, transaction);
             
             return transaction;
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void updateAccountBalance(Transaction transaction) {
+        String accountNo = transaction.getAccountNo();
+        BigDecimal amount = transaction.getAmount();
+        
+        if (transaction.getDirection() == TransactionDirection.DEBIT) {
+            accountService.debit(accountNo, amount);
+            logger.info("Debited {} from account {}", amount, accountNo);
+        } else if (transaction.getDirection() == TransactionDirection.CREDIT) {
+            accountService.credit(accountNo, amount);
+            logger.info("Credited {} to account {}", amount, accountNo);
         }
     }
 
@@ -123,41 +144,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    @Override
-    @Transactional
-    public Transaction updateTransaction(String id, Transaction transaction) {
-        Lock lock = getTransactionLock(id);
-        try {
-            lock.lock();
-            
-            Transaction existingTransaction = getTransactionOrThrow(id);
-            validateTransaction(transaction);
-            
-            logger.info("Updating transaction: {}", id);
-            transaction.setTransactionId(id);
-            transactionStore.put(id, transaction);
-            
-            return transaction;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    @Transactional
-    public void deleteTransaction(String id) {
-        Lock lock = getTransactionLock(id);
-        try {
-            lock.lock();
-            
-            Transaction transaction = getTransactionOrThrow(id);
-            logger.info("Deleting transaction: {}", id);
-            transactionStore.remove(id);
-        } finally {
-            lock.unlock();
-        }
-    }
-
     private boolean matchesFilter(Transaction transaction, TransactionFilter filter) {
         if (filter == null) {
             return true;
@@ -195,7 +181,10 @@ public class TransactionServiceImpl implements TransactionService {
         }
         if (newStatus == TransactionStatus.RUNNING) {
             throw new InvalidTransactionStateException("Cannot set status to RUNNING");
+        }else if(newStatus == TransactionStatus.FAILED){
+            throw new TransactionFailedException("Transaction failed");
         }
+
     }
 
     private Transaction getTransactionOrThrow(String id) {
@@ -209,5 +198,44 @@ public class TransactionServiceImpl implements TransactionService {
 
     private Lock getTransactionLock(String transactionId) {
         return transactionLocks.computeIfAbsent(transactionId, k -> new ReentrantLock());
+    }
+
+    @Override
+    @Transactional
+    public Transaction updateTransaction(String id, Transaction transaction) {
+        Lock lock = getTransactionLock(id);
+        try {
+            lock.lock();
+            
+            Transaction existingTransaction = getTransactionOrThrow(id);
+            validateTransaction(transaction);
+            
+            logger.info("Updating transaction: {}", id);
+            transaction.setTransactionId(id);
+            transactionStore.put(id, transaction);
+            
+            return transaction;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteTransaction(String id) {
+        Lock lock = getTransactionLock(id);
+        try {
+            lock.lock();
+            
+            Transaction transaction = getTransactionOrThrow(id);
+            logger.info("Deleting transaction: {}", id);
+            transactionStore.remove(id);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void setAccountService(AccountService accountService) {
+        this.accountService = accountService;
     }
 } 

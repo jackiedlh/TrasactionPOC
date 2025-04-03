@@ -12,6 +12,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AccountServiceImpl implements AccountService {
     private Map<String, BigDecimal> accountBalances;
 
+    public Map<String, BigDecimal> getAccountBalances() {
+        return accountBalances;
+    }
+
+    public void setAccountBalances(Map<String, BigDecimal> accountBalances) {
+        this.accountBalances = accountBalances;
+    }
+
+
+
     public AccountServiceImpl() {
         this.accountBalances = new ConcurrentHashMap<>();
     }
@@ -23,6 +33,14 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public BigDecimal getBalance(String accountNo) {
         return accountBalances.getOrDefault(accountNo, BigDecimal.ZERO);
+    }
+
+    @Override
+    public void setBalance(String accountNo, BigDecimal amount) {
+        if (accountBalances == null) {
+            accountBalances = new ConcurrentHashMap<>();
+        }
+        accountBalances.put(accountNo, amount);
     }
 
     @Override
