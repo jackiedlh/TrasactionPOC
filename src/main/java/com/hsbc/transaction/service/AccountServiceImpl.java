@@ -9,7 +9,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AccountServiceImpl implements AccountService {
-    private final Map<String, BigDecimal> accountBalances = new ConcurrentHashMap<>();
+    private Map<String, BigDecimal> accountBalances;
+
+    public AccountServiceImpl() {
+        this.accountBalances = new ConcurrentHashMap<>();
+    }
+
+    public AccountServiceImpl(Map<String, BigDecimal> balances) {
+        this.accountBalances = balances;
+    }
 
     @Override
     public BigDecimal getBalance(String accountNo) {
