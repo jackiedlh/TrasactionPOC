@@ -14,7 +14,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,7 +29,7 @@ class TransactionServiceImplTest {
         testTransaction = Transaction.builder()
                 .accountNo("123456")
                 .amount(new BigDecimal("100.00"))
-                .direction(TransactionDirection.OUT)
+                .direction(TransactionDirection.DEBIT)
                 .build();
     }
 
@@ -171,14 +170,14 @@ class TransactionServiceImplTest {
                 Transaction.builder()
                     .accountNo("123456")
                     .amount(new BigDecimal("200.00"))
-                    .direction(TransactionDirection.IN)
+                    .direction(TransactionDirection.CREDIT)
                     .build()
             );
 
             // Create filter
             TransactionFilter filter = TransactionFilter.builder()
                 .accountNo("123456")
-                .direction(TransactionDirection.OUT)
+                .direction(TransactionDirection.DEBIT)
                 .build();
 
             // Query with filter
@@ -197,7 +196,7 @@ class TransactionServiceImplTest {
                     Transaction.builder()
                         .accountNo("123456")
                         .amount(new BigDecimal("100.00"))
-                        .direction(TransactionDirection.OUT)
+                        .direction(TransactionDirection.DEBIT)
                         .build()
                 );
             }

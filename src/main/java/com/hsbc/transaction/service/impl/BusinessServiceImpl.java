@@ -31,7 +31,7 @@ public class BusinessServiceImpl implements BusinessService {
                     .accountNo(fromAccount)
                     .amount(amount)
                     .description(description + " - Transfer to " + toAccount)
-                    .direction(TransactionDirection.OUT)
+                    .direction(TransactionDirection.DEBIT)
                     .status(TransactionStatus.RUNNING)
                     .build();
 
@@ -40,7 +40,7 @@ public class BusinessServiceImpl implements BusinessService {
                     .accountNo(toAccount)
                     .amount(amount)
                     .description(description + " - Transfer from " + fromAccount)
-                    .direction(TransactionDirection.IN)
+                    .direction(TransactionDirection.CREDIT)
                     .status(TransactionStatus.RUNNING)
                     .build();
 

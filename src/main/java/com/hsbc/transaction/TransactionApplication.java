@@ -6,8 +6,8 @@ import org.springframework.cache.annotation.EnableCaching;
 
 @SpringBootApplication
 @EnableCaching
-public class TransactionServiceApplication {
+public class TransactionApplication {
     public static void main(String[] args) {
-        SpringApplication.run(TransactionServiceApplication.class, args);
+        SpringApplication.run(TransactionApplication.class, args);
     }
 } 
