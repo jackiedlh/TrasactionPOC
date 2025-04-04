@@ -1,5 +1,22 @@
 package com.hsbc.transaction.service.impl;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.hsbc.transaction.exception.InvalidTransactionException;
 import com.hsbc.transaction.exception.InvalidTransactionStateException;
 import com.hsbc.transaction.exception.TransactionNotFoundException;
@@ -8,28 +25,16 @@ import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionFilter;
 import com.hsbc.transaction.model.TransactionStatus;
 import com.hsbc.transaction.service.TransactionService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Service
+@CacheConfig(cacheNames = "transactions")
 public class TransactionServiceImpl implements TransactionService {
     private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
     private final ConcurrentHashMap<String, Transaction> transactionStore = new ConcurrentHashMap<>();
 
-
-
     @Override
     @Transactional
+    @CachePut(key = "#result.transactionId")
     public Transaction createTransaction(Transaction transaction) {
         validateTransaction(transaction);
 
@@ -45,7 +50,6 @@ public class TransactionServiceImpl implements TransactionService {
 
         logger.info("Creating new transaction with ID: {}", transaction.getTransactionId());
 
-
         String transactionId = transaction.getTransactionId();
         Transaction existing = transactionStore.putIfAbsent(transactionId, transaction);
         if (existing != null) {
@@ -55,8 +59,57 @@ public class TransactionServiceImpl implements TransactionService {
         return transaction;
     }
 
+    @Override
+    @Cacheable(unless = "#result == null")
+    public Transaction getTransactionOrThrow(String id) {
+        Transaction transaction = transactionStore.get(id);
+        if (transaction == null) {
+            logger.warn("Transaction not found: {}", id);
+            throw new TransactionNotFoundException("Transaction not found: " + id);
+        }
+        return transaction;
+    }
 
     @Override
+    @Transactional
+    @CacheEvict(key = "#id")
+    public void deleteTransaction(String id) {
+        transactionStore.compute(id, (key, existing) -> {
+            if (existing == null) {
+                logger.warn("Transaction not found: {}", id);
+                throw new TransactionNotFoundException("Transaction not found: " + id);
+            }
+            logger.info("Deleting transaction: {}", id);
+            return null;
+        });
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    @CachePut(key = "#transactionId")
+    public Transaction updateTransactionStatus(String transactionId, TransactionStatus status) {
+        Transaction updated = transactionStore.compute(transactionId, (key, existing) -> {
+            if (existing == null) {
+                logger.warn("Transaction not found: {}", transactionId);
+                throw new TransactionNotFoundException("Transaction not found: " + transactionId);
+            }
+
+            validateStatusTransition(existing.getStatus(), status);
+
+            Transaction newTransaction = Transaction.coloneTransaction(existing);
+            newTransaction.setStatus(status);
+
+            logger.info("Updating transaction {} status from {} to {}",
+                    transactionId, existing.getStatus(), status);
+
+            return newTransaction;
+        });
+
+        return updated;
+    }
+
+    @Override
+    @Cacheable(unless = "#result.content.empty")
     public PageResponse<Transaction> queryTransactions(TransactionFilter filter, int page, int size) {
         logger.debug("Querying transactions with filter: {}, page: {}, size: {}", filter, page, size);
         
@@ -124,59 +177,4 @@ public class TransactionServiceImpl implements TransactionService {
                     currentStatus, newStatus));
         }
     }
-
-    @Override
-    public Transaction getTransactionOrThrow(String id) {
-        Transaction transaction = transactionStore.get(id);
-        if (transaction == null) {
-            logger.warn("Transaction not found: {}", id);
-            throw new TransactionNotFoundException("Transaction not found: " + id);
-        }
-        return transaction;
-    }
-
-
-    @Override
-    @Transactional
-    public void deleteTransaction(String id) {
-
-        transactionStore.compute(id, (key, existing) -> {
-            if (existing == null) {
-                logger.warn("Transaction not found: {}", id);
-                throw new TransactionNotFoundException("Transaction not found: " + id);
-            }
-            logger.info("Deleting transaction: {}", id);
-            return null; // Returning null removes the entry
-        });
-
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
-    public Transaction updateTransactionStatus(String transactionId, TransactionStatus status) {
-
-        Transaction updated = transactionStore.compute(transactionId, (key, existing) -> {
-            if (existing == null) {
-                logger.warn("Transaction not found: {}", transactionId);
-                throw new TransactionNotFoundException("Transaction not found: " + transactionId);
-            }
-
-            validateStatusTransition(existing.getStatus(), status);
-
-            // Merge or copy fields as needed
-            Transaction newTransaction = Transaction.coloneTransaction(existing);
-            newTransaction.setStatus(status);
-
-            logger.info("Updating transaction {} status from {} to {}",
-                    transactionId, existing.getStatus(), status);
-
-            return newTransaction;
-        });
-
-        return updated;
-    }
-
-
-
-
 } 

@@ -1,26 +1,33 @@
 package com.hsbc.transaction.service.impl;
 
+import java.math.BigDecimal;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.hsbc.transaction.exception.AccountAlwaysExistException;
 import com.hsbc.transaction.exception.AccountNotFoundException;
 import com.hsbc.transaction.exception.InsufficientBalanceException;
 import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionDirection;
 import com.hsbc.transaction.service.AccountService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@CacheConfig(cacheNames = "accounts")
 public class AccountServiceImpl implements AccountService {
     private static final Logger logger = LoggerFactory.getLogger(AccountServiceImpl.class);
     private final ConcurrentHashMap<String, BigDecimal> accountBalances = new ConcurrentHashMap<>();
 
-    @Transactional
     @Override
+    @Transactional
+    @CachePut(key = "#accountNo")
     public void createAccount(String accountNo, BigDecimal initBalance) {
         if (initBalance == null) {
             throw new IllegalArgumentException("Initial balance cannot be null");
@@ -39,29 +46,27 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional
+    @CachePut(key = "#accountNo")
     public void credit(String accountNo, BigDecimal amount) {
-
-            //BigDecimal currentBalance = getBalance(accountNo);
-            accountBalances.compute(accountNo, (key, currentBalance) -> {
-                if (currentBalance == null) {
-                    throw new AccountNotFoundException("Account not found: " + accountNo);
-                }
-                return currentBalance.add(amount);
-            });
-
+        accountBalances.compute(accountNo, (key, currentBalance) -> {
+            if (currentBalance == null) {
+                throw new AccountNotFoundException("Account not found: " + accountNo);
+            }
+            return currentBalance.add(amount);
+        });
     }
 
     @Override
     @Transactional
+    @CachePut(key = "#accountNo")
     public void debit(String accountNo, BigDecimal amount) {
-
         accountBalances.compute(accountNo, (key, currentBalance) -> {
             if (currentBalance == null) {
                 throw new AccountNotFoundException("Account not found: " + accountNo);
-            }else if (currentBalance.compareTo(amount) < 0) {
+            } else if (currentBalance.compareTo(amount) < 0) {
                 throw new InsufficientBalanceException(
-                        String.format("Insufficient balance in account %s. Required: %s, Available: %s",
-                                accountNo, amount, currentBalance)
+                    String.format("Insufficient balance in account %s. Required: %s, Available: %s",
+                        accountNo, amount, currentBalance)
                 );
             }
             return currentBalance.subtract(amount);
@@ -69,6 +74,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @CachePut(key = "#accountNo")
     public BigDecimal getBalance(String accountNo) {
         BigDecimal balance = accountBalances.get(accountNo);
         if (balance == null) {
@@ -78,10 +84,17 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public boolean exist(String accountNo) {
-        return accountBalances.containsKey(accountNo);
+    @Transactional
+    @CacheEvict(key = "#accountNo")
+    public void deleteAccount(String accountNo) {
+        accountBalances.compute(accountNo, (key, existing) -> {
+            if (existing == null) {
+                throw new AccountNotFoundException("Account not found: " + accountNo);
+            }
+            logger.info("Deleting account: {}", accountNo);
+            return null;
+        });
     }
-
 
     @Transactional
     @Override
@@ -96,20 +109,5 @@ public class AccountServiceImpl implements AccountService {
             credit(accountNo, amount);
             logger.info("Credited {} to account {}", amount, accountNo);
         }
-    }
-
-
-    @Transactional
-    @Override
-    public void deleteAccount(String accountNo) {
-        accountBalances.compute(accountNo, (key, existing) -> {
-            if (existing == null) {
-                logger.warn("Account not found: {}", accountNo);
-                throw new AccountNotFoundException("Transaction not found: " + accountNo);
-            }
-            logger.info("Deleting account: {}", accountNo);
-            return null; // Returning null removes the entry
-        });
-
     }
 } 

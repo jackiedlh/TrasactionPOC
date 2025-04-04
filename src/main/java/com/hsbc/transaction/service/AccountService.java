@@ -13,8 +13,6 @@ public interface AccountService {
 
     void debit(String accountNo, BigDecimal amount);
 
-    boolean exist(String accountNo);
-
     void updateAccountBalance(Transaction transaction);
 
     void deleteAccount(String accountNo);
