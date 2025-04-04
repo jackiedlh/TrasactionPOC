@@ -1,29 +1,28 @@
-# Transaction Management Service
+# Transaction Service
 
-A simple Spring Boot application for managing financial transactions within a banking system.
+A Spring Boot microservice for managing financial transactions with support for concurrent processing, caching, and comprehensive error handling.
 
 ## Features
 
-- Create, read, update, and delete transactions
-- List all transactions
-- Filter transactions by direction (IN/OUT)
-- Automatic account balance management
-- Account-to-account transfers with transaction consistency
-- In-memory data storage with caching
-- Input validation
-- Exception handling
-- RESTful API design
-- Interactive API documentation with Swagger UI
+- Transaction Management (CRUD operations)
+- Account Balance Management
+- Pagination and Filtering Support
+- Caching Implementation
+- Comprehensive Error Handling
+- Thread-safe Operations
+- RESTful API with Swagger Documentation
 
-## Technologies
+## Technical Stack
 
 - Java 21
-- Spring Boot 3.2.3
-- Maven
+- Spring Boot
 - Spring Cache
-- Spring Transaction Management
-- Lombok
-- SpringDoc OpenAPI (Swagger)
+- JUnit 5
+- Swagger/OpenAPI
+- Docker
+- Kubernetes
+
+## Project Structure
 
 ## API Documentation
 
@@ -46,8 +45,6 @@ You can use the Swagger UI to:
 - GET `/api/transactions/{id}` - Get a specific transaction
 - PUT `/api/transactions/{id}` - Update a transaction
 - DELETE `/api/transactions/{id}` - Delete a transaction
-- GET `/api/transactions/direction/{direction}` - Get transactions by direction (IN/OUT)
-- GET `/api/transactions/account/{accountNo}/balance` - Get account balance
 
 ### Account Endpoints
 - GET `/api/accounts/{accountNo}/balance` - Get account balance
