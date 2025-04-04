@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,9 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.hsbc.transaction.exception.InsufficientBalanceException;
 import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionDirection;
+import com.hsbc.transaction.model.TransactionStatus;
 import com.hsbc.transaction.service.AccountService;
 import com.hsbc.transaction.service.BusinessService;
 import com.hsbc.transaction.service.TransactionService;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -84,9 +85,9 @@ class BusinessServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should rollback all transactions when one fails")
+        @DisplayName("Should refund all successful transactions when one fails")
         @Transactional
-        void shouldRollbackWhenTransactionFails() {
+        void shouldRefundSuccessfulTransactionsWhenOneFails() {
             // Arrange
             BigDecimal initialBalance1 = accountService.getBalance("ACC001");
             BigDecimal initialBalance2 = accountService.getBalance("ACC002");
@@ -108,9 +109,21 @@ class BusinessServiceImplTest {
             assertThrows(InsufficientBalanceException.class, () ->
                 businessService.combine(transactions));
 
-            // Assert - verify balances are unchanged
+            // Verify balances are restored
             assertEquals(initialBalance1, accountService.getBalance("ACC001"));
             assertEquals(initialBalance2, accountService.getBalance("ACC002"));
+
+            // Verify first transaction is refunded
+            Transaction firstTransaction = transactionService.getTransactionOrThrow(transactions.get(0).getTransactionId());
+            assertEquals(TransactionStatus.REFUNDED, firstTransaction.getStatus());
+
+            // Verify refund transaction exists and is successful
+            assertTrue(transactionService.queryTransactions(null, 0, 10).getContent()
+                .stream()
+                .anyMatch(t -> t.getAccountNo().equals("ACC001") 
+                    && t.getAmount().equals(new BigDecimal("100.00"))
+                    && t.getDirection() == TransactionDirection.CREDIT
+                    && t.getStatus() == TransactionStatus.SUCCESS));
         }
 
         @Test
@@ -232,6 +245,13 @@ class BusinessServiceImplTest {
             // Assert
             assertEquals(initialBalance1, accountService.getBalance("ACC001"));
             assertEquals(initialBalance2, accountService.getBalance("ACC002"));
+        }
+
+        @Test
+        @DisplayName("Should handle null transaction list")
+        void shouldHandleNullTransactionList() {
+            // Act & Assert
+            assertThrows(IllegalArgumentException.class, () -> businessService.combine(null));
         }
     }
 } 

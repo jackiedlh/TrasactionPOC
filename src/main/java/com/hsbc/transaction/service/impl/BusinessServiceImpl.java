@@ -1,18 +1,19 @@
 package com.hsbc.transaction.service.impl;
 
-import com.hsbc.transaction.model.Transaction;
-import com.hsbc.transaction.model.TransactionStatus;
-import com.hsbc.transaction.service.AccountService;
-import com.hsbc.transaction.service.BusinessService;
-import com.hsbc.transaction.service.TransactionService;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.hsbc.transaction.model.Transaction;
+import com.hsbc.transaction.model.TransactionStatus;
+import com.hsbc.transaction.service.AccountService;
+import com.hsbc.transaction.service.BusinessService;
+import com.hsbc.transaction.service.TransactionService;
 
 @Service
 public class BusinessServiceImpl implements BusinessService {
@@ -27,6 +28,12 @@ public class BusinessServiceImpl implements BusinessService {
     @Override
     @Transactional
     public void combine(List<Transaction> transactions) {
+        if (transactions == null) {
+            throw new IllegalArgumentException("Transaction list cannot be null");
+        }
+        if (transactions.isEmpty()) {
+            return;
+        }
         processCombineTransactions(transactions);
     }
 

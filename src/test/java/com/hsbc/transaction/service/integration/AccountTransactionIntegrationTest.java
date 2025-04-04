@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -304,6 +306,224 @@ class AccountTransactionIntegrationTest {
             assertTrue(exceptions.size() > 0, "Should have some failed transactions");
             assertEquals(new BigDecimal("500.00"), accountService.getBalance("ACC002"), 
                 "Balance should remain unchanged after failed transactions");
+        }
+    }
+
+    @Nested
+    @DisplayName("Refund Transaction Tests")
+    class RefundTransactionTests {
+
+        @Test
+        @DisplayName("Should handle single transaction refund")
+        void shouldHandleSingleTransactionRefund() {
+            // Arrange
+            BigDecimal initialBalance = accountService.getBalance("ACC001");
+            Transaction transaction = Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(new BigDecimal("200.00"))
+                    .description("Test transaction")
+                    .direction(TransactionDirection.DEBIT)
+                    .build();
+
+            // Act
+            Transaction created = transactionService.createTransaction(transaction);
+            accountService.updateAccountBalance(created);
+            transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.SUCCESS);
+
+            // Verify initial transaction
+            assertEquals(new BigDecimal("800.00"), accountService.getBalance("ACC001"));
+
+            // Refund process
+            transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.REFUNDED);
+            Transaction refundTx = Transaction.revertTransaction(created);
+            transactionService.createTransaction(refundTx);
+            accountService.updateAccountBalance(refundTx);
+            transactionService.updateTransactionStatus(refundTx.getTransactionId(), TransactionStatus.SUCCESS);
+
+            // Assert
+            assertEquals(initialBalance, accountService.getBalance("ACC001"));
+            assertEquals(TransactionStatus.REFUNDED, transactionService.getTransactionOrThrow(created.getTransactionId()).getStatus());
+            assertEquals(TransactionStatus.SUCCESS, transactionService.getTransactionOrThrow(refundTx.getTransactionId()).getStatus());
+        }
+
+        @Test
+        @DisplayName("Should handle complex multi-account transaction refunds")
+        void shouldHandleComplexMultiAccountRefunds() {
+            // Arrange
+            BigDecimal acc1Initial = accountService.getBalance("ACC001");
+            BigDecimal acc2Initial = accountService.getBalance("ACC002");
+            
+            List<Transaction> transactions = Arrays.asList(
+                Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(new BigDecimal("200.00"))
+                    .description("Debit from ACC001")
+                    .direction(TransactionDirection.DEBIT)
+                    .build(),
+                Transaction.builder()
+                    .accountNo("ACC002")
+                    .amount(new BigDecimal("200.00"))
+                    .description("Credit to ACC002")
+                    .direction(TransactionDirection.CREDIT)
+                    .build()
+            );
+
+            List<Transaction> createdTransactions = new ArrayList<>();
+            List<Transaction> refundTransactions = new ArrayList<>();
+
+            try {
+                // Act - Process transactions
+                for (Transaction tx : transactions) {
+                    Transaction created = transactionService.createTransaction(tx);
+                    accountService.updateAccountBalance(created);
+                    transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.SUCCESS);
+                    createdTransactions.add(created);
+                }
+
+                // Simulate failure after successful transactions
+                throw new RuntimeException("Simulated failure after successful transactions");
+
+            } catch (Exception e) {
+                // Refund process - reverse order
+                for (int i = createdTransactions.size() - 1; i >= 0; i--) {
+                    Transaction tx = createdTransactions.get(i);
+                    transactionService.updateTransactionStatus(tx.getTransactionId(), TransactionStatus.REFUNDED);
+                    
+                    Transaction refundTx = Transaction.revertTransaction(tx);
+                    transactionService.createTransaction(refundTx);
+                    accountService.updateAccountBalance(refundTx);
+                    transactionService.updateTransactionStatus(refundTx.getTransactionId(), TransactionStatus.SUCCESS);
+                    refundTransactions.add(refundTx);
+                }
+            }
+
+            // Assert
+            assertEquals(acc1Initial, accountService.getBalance("ACC001"));
+            assertEquals(acc2Initial, accountService.getBalance("ACC002"));
+            
+            // Verify all original transactions are refunded
+            createdTransactions.forEach(tx -> 
+                assertEquals(TransactionStatus.REFUNDED, 
+                    transactionService.getTransactionOrThrow(tx.getTransactionId()).getStatus()));
+            
+            // Verify all refund transactions are successful
+            refundTransactions.forEach(tx -> 
+                assertEquals(TransactionStatus.SUCCESS, 
+                    transactionService.getTransactionOrThrow(tx.getTransactionId()).getStatus()));
+        }
+
+        @Test
+        @DisplayName("Should handle concurrent refunds")
+        void shouldHandleConcurrentRefunds() throws InterruptedException {
+            // Arrange
+            int numberOfThreads = 5;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+            CountDownLatch latch = new CountDownLatch(numberOfThreads);
+            BigDecimal amount = new BigDecimal("50.00");
+            List<Transaction> successfulTransactions = Collections.synchronizedList(new ArrayList<>());
+
+            // Act
+            for (int i = 0; i < numberOfThreads; i++) {
+                executor.submit(() -> {
+                    try {
+                        // Create and process transaction
+                        Transaction tx = Transaction.builder()
+                                .accountNo("ACC001")
+                                .amount(amount)
+                                .description("Concurrent transaction")
+                                .direction(TransactionDirection.DEBIT)
+                                .build();
+                        
+                        Transaction created = transactionService.createTransaction(tx);
+                        accountService.updateAccountBalance(created);
+                        transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.SUCCESS);
+                        successfulTransactions.add(created);
+
+                        // Simulate random failure
+                        if (Math.random() < 0.5) {
+                            throw new RuntimeException("Random failure");
+                        }
+
+                    } catch (Exception e) {
+                        // Refund process
+                        successfulTransactions.forEach(successTx -> {
+                            try {
+                                transactionService.updateTransactionStatus(successTx.getTransactionId(), TransactionStatus.REFUNDED);
+                                Transaction refundTx = Transaction.revertTransaction(successTx);
+                                transactionService.createTransaction(refundTx);
+                                accountService.updateAccountBalance(refundTx);
+                                transactionService.updateTransactionStatus(refundTx.getTransactionId(), TransactionStatus.SUCCESS);
+                            } catch (Exception refundEx) {
+                                System.err.println("Error during refund:"+ refundEx.getMessage());
+                            }
+                        });
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            latch.await(10, TimeUnit.SECONDS);
+            executor.shutdown();
+
+            // Assert
+            BigDecimal finalBalance = accountService.getBalance("ACC001");
+            assertTrue(finalBalance.compareTo(new BigDecimal("1000.00")) <= 0, 
+                "Final balance should not exceed initial balance");
+        }
+
+        @Test
+        @DisplayName("Should handle partial refunds in transaction batch")
+        void shouldHandlePartialRefundsInBatch() {
+            // Arrange
+            List<Transaction> transactions = Arrays.asList(
+                Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(new BigDecimal("100.00"))
+                    .description("Transaction 1")
+                    .direction(TransactionDirection.DEBIT)
+                    .build(),
+                Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(new BigDecimal("200.00"))
+                    .description("Transaction 2")
+                    .direction(TransactionDirection.DEBIT)
+                    .build(),
+                Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(new BigDecimal("2000.00")) // Will fail due to insufficient funds
+                    .description("Transaction 3")
+                    .direction(TransactionDirection.DEBIT)
+                    .build()
+            );
+
+            BigDecimal initialBalance = accountService.getBalance("ACC001");
+            List<Transaction> successfulTransactions = new ArrayList<>();
+
+            // Act
+            try {
+                for (Transaction tx : transactions) {
+                    Transaction created = transactionService.createTransaction(tx);
+                    accountService.updateAccountBalance(created);
+                    transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.SUCCESS);
+                    successfulTransactions.add(created);
+                }
+            } catch (Exception e) {
+                // Refund successful transactions
+                for (Transaction tx : successfulTransactions) {
+                    transactionService.updateTransactionStatus(tx.getTransactionId(), TransactionStatus.REFUNDED);
+                    Transaction refundTx = Transaction.revertTransaction(tx);
+                    transactionService.createTransaction(refundTx);
+                    accountService.updateAccountBalance(refundTx);
+                    transactionService.updateTransactionStatus(refundTx.getTransactionId(), TransactionStatus.SUCCESS);
+                }
+            }
+
+            // Assert
+            assertEquals(initialBalance, accountService.getBalance("ACC001"));
+            successfulTransactions.forEach(tx -> 
+                assertEquals(TransactionStatus.REFUNDED, 
+                    transactionService.getTransactionOrThrow(tx.getTransactionId()).getStatus()));
         }
     }
 } 
