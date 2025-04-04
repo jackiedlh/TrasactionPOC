@@ -1,10 +1,8 @@
 package com.hsbc.transaction.service;
 
-import java.math.BigDecimal;
-
-import org.springframework.transaction.annotation.Transactional;
-
 import com.hsbc.transaction.model.Transaction;
+
+import java.math.BigDecimal;
 
 public interface AccountService {
 
@@ -19,6 +17,5 @@ public interface AccountService {
 
     void updateAccountBalance(Transaction transaction);
 
-    @Transactional
     void deleteAccount(String accountNo);
 }

@@ -1,13 +1,10 @@
 package com.hsbc.transaction.service;
 
-import com.hsbc.transaction.model.Transaction;
-import com.hsbc.transaction.model.TransactionStatus;
 import com.hsbc.transaction.model.PageResponse;
+import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionFilter;
-import org.springframework.transaction.annotation.Transactional;
+import com.hsbc.transaction.model.TransactionStatus;
 
-import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 public interface TransactionService {

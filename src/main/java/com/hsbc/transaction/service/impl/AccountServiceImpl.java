@@ -1,38 +1,23 @@
 package com.hsbc.transaction.service.impl;
 
-import java.math.BigDecimal;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.hsbc.transaction.exception.AccountAlwaysExistException;
 import com.hsbc.transaction.exception.AccountNotFoundException;
 import com.hsbc.transaction.exception.InsufficientBalanceException;
 import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionDirection;
 import com.hsbc.transaction.service.AccountService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AccountServiceImpl implements AccountService {
     private static final Logger logger = LoggerFactory.getLogger(AccountServiceImpl.class);
     private final ConcurrentHashMap<String, BigDecimal> accountBalances = new ConcurrentHashMap<>();
-
-    @Override
-    @Transactional
-    public void credit(String accountNo, BigDecimal amount) {
-
-            //BigDecimal currentBalance = getBalance(accountNo);
-            accountBalances.compute(accountNo, (key, currentBalance) -> {
-                if (currentBalance == null) {
-                    throw new AccountNotFoundException("Account not found: " + accountNo);
-                }
-                return currentBalance.add(amount);
-            });
-
-    }
 
     @Transactional
     @Override
@@ -52,6 +37,19 @@ public class AccountServiceImpl implements AccountService {
         });
     }
 
+    @Override
+    @Transactional
+    public void credit(String accountNo, BigDecimal amount) {
+
+            //BigDecimal currentBalance = getBalance(accountNo);
+            accountBalances.compute(accountNo, (key, currentBalance) -> {
+                if (currentBalance == null) {
+                    throw new AccountNotFoundException("Account not found: " + accountNo);
+                }
+                return currentBalance.add(amount);
+            });
+
+    }
 
     @Override
     @Transactional

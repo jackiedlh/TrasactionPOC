@@ -1,26 +1,18 @@
 package com.hsbc.transaction.service.impl;
 
-import java.math.BigDecimal;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.hsbc.transaction.exception.InvalidTransactionException;
+import com.hsbc.transaction.exception.InvalidTransactionStateException;
+import com.hsbc.transaction.exception.TransactionNotFoundException;
+import com.hsbc.transaction.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import com.hsbc.transaction.exception.InvalidTransactionException;
-import com.hsbc.transaction.exception.InvalidTransactionStateException;
-import com.hsbc.transaction.exception.TransactionNotFoundException;
-import com.hsbc.transaction.model.PageResponse;
-import com.hsbc.transaction.model.Transaction;
-import com.hsbc.transaction.model.TransactionDirection;
-import com.hsbc.transaction.model.TransactionFilter;
-import com.hsbc.transaction.model.TransactionStatus;
+import java.math.BigDecimal;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionServiceImplTest {
     private TransactionServiceImpl transactionService;
