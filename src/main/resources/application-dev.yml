@@ -1,0 +1,7 @@
+logging:
+  level:
+    com.hsbc: DEBUG
+
+springdoc:
+  swagger-ui:
+    enabled: true 

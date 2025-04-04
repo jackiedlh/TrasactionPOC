@@ -3,6 +3,8 @@ package com.hsbc.transaction.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -13,18 +15,19 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(TransactionNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleTransactionNotFoundException(TransactionNotFoundException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", ex.getMessage());
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    @ExceptionHandler(InvalidTransactionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidTransaction(InvalidTransactionException ex) {
+        return ResponseEntity.badRequest().body(new ErrorResponseException(HttpStatus.BAD_REQUEST,ex));
     }
 
     @ExceptionHandler(InsufficientBalanceException.class)
-    public ResponseEntity<Map<String, String>> handleInsufficientBalanceException(InsufficientBalanceException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", ex.getMessage());
-        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    public ResponseEntity<ErrorResponse> handleInsufficientBalance(InsufficientBalanceException ex) {
+        return ResponseEntity.badRequest().body(new ErrorResponseException(HttpStatus.BAD_REQUEST,ex));
+    }
+
+    @ExceptionHandler(TransactionNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTransactionNotFound(TransactionNotFoundException ex) {
+        return ResponseEntity.notFound().build();
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

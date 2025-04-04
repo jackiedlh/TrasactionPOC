@@ -1,0 +1,55 @@
+# Server configuration
+server:
+  port: 8080
+
+# Spring application configuration
+spring:
+  application:
+    name: transaction-service
+  cache:
+    type: simple
+
+# Logging configuration
+logging:
+  level:
+    com.hsbc: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# OpenAPI/Swagger configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  packages-to-scan: com.hsbc.transaction.controller
+
+# Cache configuration (additional settings)
+cache:
+  transaction:
+    time-to-live: 3600 # 1 hour in seconds
+    maximum-size: 10000
+  account:
+    time-to-live: 3600
+    maximum-size: 1000
+
+# Management endpoints (actuator)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,caches
+  endpoint:
+    health:
+      show-details: always
+
+# Application specific settings
+transaction:
+  pagination:
+    default-page-size: 10
+    max-page-size: 100
+  validation:
+    min-amount: 0.01
+    max-amount: 1000000.00 

@@ -1,0 +1,7 @@
+spring:
+  cache:
+    type: none
+
+logging:
+  level:
+    com.hsbc: DEBUG 

@@ -1,0 +1,13 @@
+logging:
+  level:
+    com.hsbc: WARN
+
+springdoc:
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info 
