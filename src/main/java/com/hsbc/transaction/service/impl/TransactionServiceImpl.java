@@ -96,13 +96,12 @@ public class TransactionServiceImpl implements TransactionService {
 
             validateStatusTransition(existing.getStatus(), status);
 
-            Transaction newTransaction = Transaction.coloneTransaction(existing);
-            newTransaction.setStatus(status);
+            existing.setStatus(status);
 
             logger.info("Updating transaction {} status from {} to {}",
                     transactionId, existing.getStatus(), status);
 
-            return newTransaction;
+            return existing;
         });
 
         return updated;
@@ -171,7 +170,13 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     private void validateStatusTransition(TransactionStatus currentStatus, TransactionStatus newStatus) {
-        if (currentStatus != TransactionStatus.RUNNING) {
+        if (newStatus == TransactionStatus.REFUNDED){
+            if (currentStatus != TransactionStatus.SUCCESS){
+                throw new InvalidTransactionStateException(
+                        String.format("Cannot refund transaction from status %s . Only SUCCESS transactions can be refunded.",
+                                currentStatus));
+            }
+        }else if (currentStatus != TransactionStatus.RUNNING) {
             throw new InvalidTransactionStateException(
                 String.format("Cannot update transaction status from %s to %s. Only RUNNING transactions can be updated.",
                     currentStatus, newStatus));

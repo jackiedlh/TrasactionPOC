@@ -72,7 +72,7 @@ public class Transaction {
                 .amount(transaction.getAmount())
                 .description(transaction.getDescription())
                 .direction(transaction.getDirection()==TransactionDirection.DEBIT?TransactionDirection.CREDIT:TransactionDirection.DEBIT)
-                .status(transaction.getStatus())
+                .status(TransactionStatus.RUNNING)
                 .timestamp(transaction.getTimestamp())
                 .build();
     }

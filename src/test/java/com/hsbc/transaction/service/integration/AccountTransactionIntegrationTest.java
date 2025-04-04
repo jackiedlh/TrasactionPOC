@@ -97,7 +97,7 @@ class AccountTransactionIntegrationTest {
                 // Simulate failure
                 throw new RuntimeException("Simulated failure");
             } catch (Exception e) {
-                //transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.FAILED);
+                transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.REFUNDED);
                 // Revert the transaction
                 Transaction revertedTransaction = revertTransaction(created);
                 transactionService.createTransaction(revertedTransaction);
@@ -182,16 +182,21 @@ class AccountTransactionIntegrationTest {
                 assertEquals(new BigDecimal("700.00"), accountService.getBalance("ACC002"));
             } catch (Exception e) {
                 // Rollback both transactions if either fails
-                transactionService.updateTransactionStatus(createdDebit.getTransactionId(), TransactionStatus.FAILED);
-                transactionService.updateTransactionStatus(createdCredit.getTransactionId(), TransactionStatus.FAILED);
+                if (createdDebit.getStatus() == TransactionStatus.SUCCESS) {
+                    transactionService.updateTransactionStatus(createdDebit.getTransactionId(), TransactionStatus.REFUNDED);
+                    Transaction revertedTransaction = revertTransaction(createdDebit);
+                    transactionService.createTransaction(revertedTransaction);
+                    transactionService.updateTransactionStatus(revertedTransaction.getTransactionId(), TransactionStatus.SUCCESS);
+                }
 
-                Transaction revertedTransaction = revertTransaction(createdDebit);
-                transactionService.createTransaction(revertedTransaction);
-                transactionService.updateTransactionStatus(revertedTransaction.getTransactionId(), TransactionStatus.SUCCESS);
-                revertedTransaction = revertTransaction(createdCredit);
-                accountService.updateAccountBalance(revertedTransaction);
-                transactionService.updateTransactionStatus(revertedTransaction.getTransactionId(), TransactionStatus.SUCCESS);
+                if (createdCredit.getStatus() == TransactionStatus.SUCCESS) {
+                    transactionService.updateTransactionStatus(createdCredit.getTransactionId(), TransactionStatus.REFUNDED);
+                    Transaction revertedTransaction = revertTransaction(createdCredit);
+                    accountService.updateAccountBalance(revertedTransaction);
+                    transactionService.updateTransactionStatus(revertedTransaction.getTransactionId(), TransactionStatus.SUCCESS);
+                }
                 fail("Transfer should succeed: " + e.getMessage());
+
             }
         }
 
@@ -223,19 +228,20 @@ class AccountTransactionIntegrationTest {
                         // Create and execute transfer transactions
                         Transaction createdDebit = transactionService.createTransaction(debitTx);
                         accountService.updateAccountBalance(createdDebit);
-                        revertTxs.add(revertTransaction(createdDebit));
+                        transactionService.updateTransactionStatus(createdDebit.getTransactionId(), TransactionStatus.SUCCESS);
+                        revertTxs.add(createdDebit);
                         Transaction createdCredit = transactionService.createTransaction(creditTx);
                         accountService.updateAccountBalance(createdCredit);
-                        revertTxs.add(revertTransaction(createdCredit));
-
-                        transactionService.updateTransactionStatus(createdDebit.getTransactionId(), TransactionStatus.SUCCESS);
                         transactionService.updateTransactionStatus(createdCredit.getTransactionId(), TransactionStatus.SUCCESS);
+                        revertTxs.add(createdCredit);
                     } catch (Exception e) {
                         System.err.println("Transfer failed: " + e.getMessage());
                         for (Transaction transaction : revertTxs) {
-                            transactionService.createTransaction(transaction);
-                            accountService.updateAccountBalance(transaction);
                             transactionService.updateTransactionStatus(transaction.getTransactionId(), TransactionStatus.SUCCESS);
+                            Transaction revertedTransaction = revertTransaction(transaction);
+                            transactionService.createTransaction(revertedTransaction);
+                            accountService.updateAccountBalance(revertedTransaction);
+                            transactionService.updateTransactionStatus(revertedTransaction.getTransactionId(), TransactionStatus.SUCCESS);
                         }
 
                     } finally {
