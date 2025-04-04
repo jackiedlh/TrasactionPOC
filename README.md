@@ -39,16 +39,94 @@ You can use the Swagger UI to:
 
 ## API Endpoints
 
-### Transaction Endpoints
-- POST `/api/transactions` - Create a new transaction
-- GET `/api/transactions` - Get all transactions
-- GET `/api/transactions/{id}` - Get a specific transaction
-- PUT `/api/transactions/{id}` - Update a transaction
-- DELETE `/api/transactions/{id}` - Delete a transaction
+### Account Operations
+```http
+GET /api/v1/accounts/{accountNo}/balance    # Get account balance
+```
 
-### Account Endpoints
-- GET `/api/accounts/{accountNo}/balance` - Get account balance
-- POST `/api/accounts/transfer` - Transfer money between accounts
+#### Example Responses:
+```json
+// GET /api/v1/accounts/ACC001/balance
+200 OK
+{
+    "balance": 1000.00
+}
+```
+
+### Transaction Operations
+```http
+# Create Transaction
+POST /api/transactions
+Content-Type: application/json
+
+{
+    "accountNo": "ACC001",
+    "amount": 100.00,
+    "direction": "DEBIT"
+}
+
+# Update Transaction Status
+PUT /api/transactions/{id}/status?status=SUCCESS
+
+# Query Transactions with Filters
+GET /api/transactions?accountNo=ACC001&direction=DEBIT&status=SUCCESS&minAmount=100&maxAmount=1000&fromDate=2024-01-01T00:00:00&toDate=2024-12-31T23:59:59&page=0&size=10
+
+# Delete Transaction
+DELETE /api/transactions/{id}
+```
+
+#### Query Parameters for Transactions:
+| Parameter  | Type          | Required | Default | Description |
+|-----------|---------------|----------|---------|-------------|
+| accountNo | String        | No       | -       | Account number to filter by |
+| direction | Enum          | No       | -       | DEBIT or CREDIT |
+| status    | Enum          | No       | -       | Transaction status |
+| minAmount | BigDecimal    | No       | -       | Minimum transaction amount |
+| maxAmount | BigDecimal    | No       | -       | Maximum transaction amount |
+| fromDate  | LocalDateTime | No       | -       | Start date for transaction search |
+| toDate    | LocalDateTime | No       | -       | End date for transaction search |
+| page      | Integer       | No       | 0       | Page number (0-based) |
+| size      | Integer       | No       | 10      | Number of items per page |
+
+#### Example Responses:
+```json
+// POST /api/transactions
+201 Created
+{
+    "transactionId": "TX123",
+    "accountNo": "ACC001",
+    "amount": 100.00,
+    "direction": "DEBIT",
+    "status": "PENDING",
+    "timestamp": "2024-01-20T10:30:00"
+}
+
+// GET /api/transactions
+200 OK
+{
+    "content": [
+        {
+            "transactionId": "TX123",
+            "accountNo": "ACC001",
+            "amount": 100.00,
+            "direction": "DEBIT",
+            "status": "SUCCESS",
+            "timestamp": "2024-01-20T10:30:00"
+        }
+    ],
+    "totalElements": 1,
+    "totalPages": 1,
+    "currentPage": 0,
+    "pageSize": 10
+}
+```
+
+### API Documentation
+The API is documented using OpenAPI (Swagger) and can be accessed at:
+```http
+GET /swagger-ui.html    # Interactive API documentation
+GET /v3/api-docs       # OpenAPI specification
+```
 
 ## Building and Running
 
@@ -94,17 +172,6 @@ curl http://localhost:8080/api/transactions/direction/OUT
 curl http://localhost:8080/api/transactions/account/12345678901/balance
 ```
 
-### Transfer Money Between Accounts
-```bash
-curl -X POST http://localhost:8080/api/accounts/transfer \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fromAccount": "12345678901",
-    "toAccount": "98765432100",
-    "amount": 50.00,
-    "description": "Payment for rent"
-  }'
-```
 
 ## Account Balance Management
 

@@ -19,6 +19,10 @@ import java.math.BigDecimal;
 public class AccountController {
     private final AccountService accountService;
 
+    public AccountController(AccountService accountService) {
+        this.accountService = accountService;
+    }
+
     @GetMapping("/{accountNo}/balance")
     @Operation(summary = "Get account balance", description = "Retrieve the current balance of an account")
     public ResponseEntity<BigDecimal> getBalance(@PathVariable String accountNo) {

@@ -77,14 +77,6 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.queryTransactions(filter, page, size));
     }
 
-    @PutMapping("/{id}")
-    @Operation(summary = "Update an existing transaction status")
-    public ResponseEntity<Transaction> updateTransaction(
-            @PathVariable String id,
-            @RequestBody TransactionStatus transactionStatus) {
-        return ResponseEntity.ok(transactionService.updateTransactionStatus(id, transactionStatus));
-    }
-
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a transaction")
     public ResponseEntity<Void> deleteTransaction(@PathVariable String id) {
