@@ -25,13 +25,10 @@ import com.hsbc.transaction.model.TransactionStatus;
 class TransactionServiceImplTest {
     private TransactionServiceImpl transactionService;
     private Transaction testTransaction;
-    private AccountServiceImpl accountService;
 
     @BeforeEach
     void setUp() {
         transactionService = new TransactionServiceImpl();
-        accountService = new AccountServiceImpl();
-        accountService.createAccount("123456", new BigDecimal("1000.00"));
 
         testTransaction = Transaction.builder()
                 .transactionId(UUID.randomUUID().toString())

@@ -52,6 +52,7 @@ public class AccountServiceImpl implements AccountService {
         });
     }
 
+
     @Override
     @Transactional
     public void debit(String accountNo, BigDecimal amount) {
@@ -78,6 +79,11 @@ public class AccountServiceImpl implements AccountService {
         return balance;
     }
 
+    @Override
+    public boolean exist(String accountNo) {
+        return accountBalances.containsKey(accountNo);
+    }
+
 
     @Transactional
     @Override
@@ -92,5 +98,20 @@ public class AccountServiceImpl implements AccountService {
             credit(accountNo, amount);
             logger.info("Credited {} to account {}", amount, accountNo);
         }
+    }
+
+
+    @Transactional
+    @Override
+    public void deleteAccount(String accountNo) {
+        accountBalances.compute(accountNo, (key, existing) -> {
+            if (existing == null) {
+                logger.warn("Account not found: {}", accountNo);
+                throw new AccountNotFoundException("Transaction not found: " + accountNo);
+            }
+            logger.info("Deleting account: {}", accountNo);
+            return null; // Returning null removes the entry
+        });
+
     }
 } 

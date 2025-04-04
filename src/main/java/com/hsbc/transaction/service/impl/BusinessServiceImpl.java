@@ -22,14 +22,10 @@ public class BusinessServiceImpl implements BusinessService {
     private static final Logger logger = LoggerFactory.getLogger(BusinessServiceImpl.class);
 
     @Autowired
-    private final TransactionService transactionService;
-
-    @Autowired
     private AccountService accountService;
 
-    public BusinessServiceImpl(TransactionService transactionService) {
-        this.transactionService = transactionService;
-    }
+    @Autowired
+    private TransactionService transactionService;
 
     @Override
     @Transactional
@@ -38,26 +34,25 @@ public class BusinessServiceImpl implements BusinessService {
     }
 
     private void processCombineTransactions(List<Transaction> transactions) {
-        List<Transaction> originalTransactions = new ArrayList<>();
-        for (Transaction transaction : transactions) {
-            transactionService.createTransaction(transaction);
-            transactionService.updateTransactionStatus(transaction.getTransactionId(), TransactionStatus.SUCCESS);
-            accountService.updateAccountBalance(transaction);
-
-
+        List<Transaction> revertTxs = new ArrayList<>();
+        try {
+            for (Transaction transaction : transactions) {
+                transactionService.createTransaction(transaction);
+                accountService.updateAccountBalance(transaction);
+                transactionService.updateTransactionStatus(transaction.getTransactionId(), TransactionStatus.SUCCESS);
+                revertTxs.add(Transaction.revertTransaction(transaction));
+            }
+        }catch (Exception e) {//simulate rollback
+            for (Transaction transaction : revertTxs) {
+                transactionService.createTransaction(transaction);
+                accountService.updateAccountBalance(transaction);
+                transactionService.updateTransactionStatus(transaction.getTransactionId(), TransactionStatus.SUCCESS);
+            }
+            throw e;
         }
     }
 
-    private void updateAccountBalance(Transaction transaction) {
-        String accountNo = transaction.getAccountNo();
-        BigDecimal amount = transaction.getAmount();
 
-        if (transaction.getDirection() == TransactionDirection.DEBIT) {
-            accountService.debit(accountNo, amount);
-            logger.info("Debited {} from account {}", amount, accountNo);
-        } else if (transaction.getDirection() == TransactionDirection.CREDIT) {
-            accountService.credit(accountNo, amount);
-            logger.info("Credited {} to account {}", amount, accountNo);
-        }
-    }
+
+
 }

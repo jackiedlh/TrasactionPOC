@@ -11,10 +11,14 @@ public interface AccountService {
     BigDecimal getBalance(String accountNo);
     void credit(String accountNo, BigDecimal amount);
 
-    @Transactional
     void createAccount(String accountNo, BigDecimal initBalance);
 
     void debit(String accountNo, BigDecimal amount);
 
+    boolean exist(String accountNo);
+
     void updateAccountBalance(Transaction transaction);
+
+    @Transactional
+    void deleteAccount(String accountNo);
 }

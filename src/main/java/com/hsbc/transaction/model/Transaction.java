@@ -53,21 +53,21 @@ public class Transaction {
                 .build();
     }
 
-    public static Transaction coloneTransaction(Transaction transaction, TransactionStatus status) {
+    public static Transaction coloneTransaction(Transaction transaction) {
         return Transaction.builder()
-                .transactionId(transaction.getTransactionId())
+                .transactionId(UUID.randomUUID().toString())
                 .accountNo(transaction.accountNo)
                 .amount(transaction.getAmount())
                 .description(transaction.getDescription())
                 .direction(transaction.getDirection())
-                .status(status!=null? status:transaction.getStatus())
+                .status(transaction.getStatus())
                 .timestamp(transaction.getTimestamp())
                 .build();
     }
 
     public static Transaction revertTransaction(Transaction transaction) {
         return Transaction.builder()
-                .transactionId(transaction.getTransactionId())
+                .transactionId(UUID.randomUUID().toString())
                 .accountNo(transaction.accountNo)
                 .amount(transaction.getAmount())
                 .description(transaction.getDescription())

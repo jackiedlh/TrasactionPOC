@@ -9,4 +9,6 @@ import java.util.List;
 public interface BusinessService {
     @Transactional
     void combine(List<Transaction> transactions);
-} 
+
+
+}

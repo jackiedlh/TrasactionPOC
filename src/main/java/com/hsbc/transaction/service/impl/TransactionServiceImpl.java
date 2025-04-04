@@ -165,7 +165,8 @@ public class TransactionServiceImpl implements TransactionService {
             validateStatusTransition(existing.getStatus(), status);
 
             // Merge or copy fields as needed
-            Transaction newTransaction = Transaction.coloneTransaction(existing,status);
+            Transaction newTransaction = Transaction.coloneTransaction(existing);
+            newTransaction.setStatus(status);
 
             logger.info("Updating transaction {} status from {} to {}",
                     transactionId, existing.getStatus(), status);
