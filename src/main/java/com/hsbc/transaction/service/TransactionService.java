@@ -4,6 +4,7 @@ import com.hsbc.transaction.model.Transaction;
 import com.hsbc.transaction.model.TransactionStatus;
 import com.hsbc.transaction.model.PageResponse;
 import com.hsbc.transaction.model.TransactionFilter;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -33,19 +34,7 @@ public interface TransactionService {
      */
     Transaction updateTransactionStatus(String transactionId, TransactionStatus status);
 
-    /**
-     * Get all transactions for an account
-     * @param accountNo The account number
-     * @return List of transactions for the account
-     */
-    List<Transaction> getTransactionsByAccount(String accountNo);
 
-    /**
-     * Get a transaction by ID
-     * @param id The transaction ID
-     * @return The transaction
-     */
-    Transaction getTransaction(String id);
 
     /**
      * Query transactions with optional filters and pagination
@@ -56,13 +45,7 @@ public interface TransactionService {
      */
     PageResponse<Transaction> queryTransactions(TransactionFilter filter, int page, int size);
 
-    /**
-     * Update an existing transaction
-     * @param id The transaction ID
-     * @param transaction The updated transaction data
-     * @return The updated transaction
-     */
-    Transaction updateTransaction(String id, Transaction transaction);
+    Transaction getTransactionOrThrow(String id);
 
     /**
      * Delete a transaction

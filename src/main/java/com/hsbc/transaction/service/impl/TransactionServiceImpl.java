@@ -1,116 +1,61 @@
 package com.hsbc.transaction.service.impl;
 
-import com.hsbc.transaction.exception.TransactionFailedException;
-import com.hsbc.transaction.model.*;
-import com.hsbc.transaction.service.AccountService;
-import com.hsbc.transaction.service.TransactionService;
-import com.hsbc.transaction.exception.TransactionNotFoundException;
-import com.hsbc.transaction.exception.InvalidTransactionStateException;
-import com.hsbc.transaction.exception.InvalidTransactionException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.hsbc.transaction.exception.InvalidTransactionException;
+import com.hsbc.transaction.exception.InvalidTransactionStateException;
+import com.hsbc.transaction.exception.TransactionNotFoundException;
+import com.hsbc.transaction.model.PageResponse;
+import com.hsbc.transaction.model.Transaction;
+import com.hsbc.transaction.model.TransactionFilter;
+import com.hsbc.transaction.model.TransactionStatus;
+import com.hsbc.transaction.service.TransactionService;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
     private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
-    private final Map<String, Transaction> transactionStore = new ConcurrentHashMap<>();
-    private final Map<String, Lock> transactionLocks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Transaction> transactionStore = new ConcurrentHashMap<>();
 
 
-
-    @Autowired
-    private AccountService accountService;
-
-    @Override
-    public String generateTransactionId() {
-        return UUID.randomUUID().toString();
-    }
 
     @Override
     @Transactional
     public Transaction createTransaction(Transaction transaction) {
         validateTransaction(transaction);
-        
+
         if (transaction.getTransactionId() == null) {
             transaction.setTransactionId(generateTransactionId());
         }
-        
-        transaction.setStatus(TransactionStatus.RUNNING);
+
+        if (transaction.getStatus() == null) {
+            transaction.setStatus(TransactionStatus.RUNNING);
+        }
+
         transaction.setTimestamp(LocalDateTime.now());
-        
+
         logger.info("Creating new transaction with ID: {}", transaction.getTransactionId());
-        transactionStore.put(transaction.getTransactionId(), transaction);
-        
+
+
+        String transactionId = transaction.getTransactionId();
+        Transaction existing = transactionStore.putIfAbsent(transactionId, transaction);
+        if (existing != null) {
+            throw new IllegalStateException("Transaction ID " + transactionId + " already exists");
+        }
+
         return transaction;
     }
 
-    @Override
-    @Transactional
-    public Transaction updateTransactionStatus(String transactionId, TransactionStatus status) {
-        Lock lock = getTransactionLock(transactionId);
-        try {
-            lock.lock();
-            
-            Transaction transaction = getTransactionOrThrow(transactionId);
-            validateStatusTransition(transaction.getStatus(), status);
-            
-            logger.info("Updating transaction {} status from {} to {}", 
-                transactionId, transaction.getStatus(), status);
-            
-            transaction.setStatus(status);
-            if (status == TransactionStatus.SUCCESS) {
-                updateAccountBalance(transaction);
-            }
-            transactionStore.put(transactionId, transaction);
-            
-            return transaction;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private void updateAccountBalance(Transaction transaction) {
-        String accountNo = transaction.getAccountNo();
-        BigDecimal amount = transaction.getAmount();
-        
-        if (transaction.getDirection() == TransactionDirection.DEBIT) {
-            accountService.debit(accountNo, amount);
-            logger.info("Debited {} from account {}", amount, accountNo);
-        } else if (transaction.getDirection() == TransactionDirection.CREDIT) {
-            accountService.credit(accountNo, amount);
-            logger.info("Credited {} to account {}", amount, accountNo);
-        }
-    }
-
-    @Override
-    public List<Transaction> getTransactionsByAccount(String accountNo) {
-        logger.debug("Retrieving transactions for account: {}", accountNo);
-        return transactionStore.values().stream()
-                .filter(t -> t.getAccountNo().equals(accountNo))
-                .sorted(Comparator.comparing(Transaction::getTimestamp).reversed())
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public Transaction getTransaction(String id) {
-        Transaction transaction = transactionStore.get(id);
-        if (transaction == null) {
-            logger.warn("Transaction not found: {}", id);
-            throw new TransactionNotFoundException("Transaction not found: " + id);
-        }
-        return transaction;
-    }
 
     @Override
     public PageResponse<Transaction> queryTransactions(TransactionFilter filter, int page, int size) {
@@ -179,15 +124,10 @@ public class TransactionServiceImpl implements TransactionService {
                 String.format("Cannot update transaction status from %s to %s. Only RUNNING transactions can be updated.",
                     currentStatus, newStatus));
         }
-        if (newStatus == TransactionStatus.RUNNING) {
-            throw new InvalidTransactionStateException("Cannot set status to RUNNING");
-        }else if(newStatus == TransactionStatus.FAILED){
-            throw new TransactionFailedException("Transaction failed");
-        }
-
     }
 
-    private Transaction getTransactionOrThrow(String id) {
+    @Override
+    public Transaction getTransactionOrThrow(String id) {
         Transaction transaction = transactionStore.get(id);
         if (transaction == null) {
             logger.warn("Transaction not found: {}", id);
@@ -196,46 +136,47 @@ public class TransactionServiceImpl implements TransactionService {
         return transaction;
     }
 
-    private Lock getTransactionLock(String transactionId) {
-        return transactionLocks.computeIfAbsent(transactionId, k -> new ReentrantLock());
-    }
-
-    @Override
-    @Transactional
-    public Transaction updateTransaction(String id, Transaction transaction) {
-        Lock lock = getTransactionLock(id);
-        try {
-            lock.lock();
-            
-            Transaction existingTransaction = getTransactionOrThrow(id);
-            validateTransaction(transaction);
-            
-            logger.info("Updating transaction: {}", id);
-            transaction.setTransactionId(id);
-            transactionStore.put(id, transaction);
-            
-            return transaction;
-        } finally {
-            lock.unlock();
-        }
-    }
 
     @Override
     @Transactional
     public void deleteTransaction(String id) {
-        Lock lock = getTransactionLock(id);
-        try {
-            lock.lock();
-            
-            Transaction transaction = getTransactionOrThrow(id);
+
+        transactionStore.compute(id, (key, existing) -> {
+            if (existing == null) {
+                logger.warn("Transaction not found: {}", id);
+                throw new TransactionNotFoundException("Transaction not found: " + id);
+            }
             logger.info("Deleting transaction: {}", id);
-            transactionStore.remove(id);
-        } finally {
-            lock.unlock();
-        }
+            return null; // Returning null removes the entry
+        });
+
     }
 
-    public void setAccountService(AccountService accountService) {
-        this.accountService = accountService;
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public Transaction updateTransactionStatus(String transactionId, TransactionStatus status) {
+
+        Transaction updated = transactionStore.compute(transactionId, (key, existing) -> {
+            if (existing == null) {
+                logger.warn("Transaction not found: {}", transactionId);
+                throw new TransactionNotFoundException("Transaction not found: " + transactionId);
+            }
+
+            validateStatusTransition(existing.getStatus(), status);
+
+            // Merge or copy fields as needed
+            Transaction newTransaction = Transaction.coloneTransaction(existing,status);
+
+            logger.info("Updating transaction {} status from {} to {}",
+                    transactionId, existing.getStatus(), status);
+
+            return newTransaction;
+        });
+
+        return updated;
     }
+
+
+
+
 } 

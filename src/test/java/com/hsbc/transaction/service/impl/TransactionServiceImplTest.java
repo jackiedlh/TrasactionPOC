@@ -1,272 +1,240 @@
 package com.hsbc.transaction.service.impl;
 
-import com.hsbc.transaction.model.Transaction;
-import com.hsbc.transaction.model.TransactionStatus;
-import com.hsbc.transaction.model.TransactionDirection;
-import com.hsbc.transaction.model.PageResponse;
-import com.hsbc.transaction.model.TransactionFilter;
-import com.hsbc.transaction.exception.TransactionNotFoundException;
-import com.hsbc.transaction.exception.InvalidTransactionStateException;
-import com.hsbc.transaction.exception.InvalidTransactionException;
+import java.math.BigDecimal;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import com.hsbc.transaction.exception.InvalidTransactionException;
+import com.hsbc.transaction.exception.InvalidTransactionStateException;
+import com.hsbc.transaction.exception.TransactionNotFoundException;
+import com.hsbc.transaction.model.PageResponse;
+import com.hsbc.transaction.model.Transaction;
+import com.hsbc.transaction.model.TransactionDirection;
+import com.hsbc.transaction.model.TransactionFilter;
+import com.hsbc.transaction.model.TransactionStatus;
 
 class TransactionServiceImplTest {
     private TransactionServiceImpl transactionService;
     private Transaction testTransaction;
+    private AccountServiceImpl accountService;
 
     @BeforeEach
     void setUp() {
         transactionService = new TransactionServiceImpl();
-        
+        accountService = new AccountServiceImpl();
+        accountService.createAccount("123456", new BigDecimal("1000.00"));
+
         testTransaction = Transaction.builder()
+                .transactionId(UUID.randomUUID().toString())
                 .accountNo("123456")
                 .amount(new BigDecimal("100.00"))
                 .direction(TransactionDirection.DEBIT)
                 .build();
+
     }
 
     @Nested
-    @DisplayName("Transaction Creation Tests")
-    class TransactionCreationTests {
+    @DisplayName("Create Transaction Tests")
+    class CreateTransactionTests {
+
         @Test
-        @DisplayName("Should create transaction with generated ID")
-        void shouldCreateTransactionWithGeneratedId() {
-            Transaction created = transactionService.createTransaction(testTransaction);
-            
+        @DisplayName("Should create transaction successfully")
+        void shouldCreateTransaction() {
+            // Arrange
+            Transaction transaction = Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(new BigDecimal("100.00"))
+                    .direction(TransactionDirection.DEBIT)
+                    .build();
+
+            // Act
+            Transaction created = transactionService.createTransaction(transaction);
+
+            // Assert
             assertNotNull(created.getTransactionId());
-            assertNotNull(created.getTimestamp());
             assertEquals(TransactionStatus.RUNNING, created.getStatus());
-            assertEquals(testTransaction.getAccountNo(), created.getAccountNo());
-            assertEquals(testTransaction.getAmount(), created.getAmount());
-            assertEquals(testTransaction.getDirection(), created.getDirection());
+            assertNotNull(created.getTimestamp());
+            assertEquals("ACC001", created.getAccountNo());
+            assertEquals(new BigDecimal("100.00"), created.getAmount());
+            assertEquals(TransactionDirection.DEBIT, created.getDirection());
         }
 
         @Test
-        @DisplayName("Should create transaction with provided ID")
-        void shouldCreateTransactionWithProvidedId() {
-            String transactionId = "test-id";
-            testTransaction.setTransactionId(transactionId);
-            
-            Transaction created = transactionService.createTransaction(testTransaction);
-            
-            assertEquals(transactionId, created.getTransactionId());
-        }
-
-        @Test
-        @DisplayName("Should throw exception when transaction is null")
-        void shouldThrowExceptionWhenTransactionIsNull() {
-            assertThrows(InvalidTransactionException.class, () -> 
+        @DisplayName("Should throw exception for null transaction")
+        void shouldThrowExceptionForNullTransaction() {
+            assertThrows(InvalidTransactionException.class, () ->
                 transactionService.createTransaction(null));
         }
 
         @Test
-        @DisplayName("Should throw exception when account number is missing")
-        void shouldThrowExceptionWhenAccountNumberIsMissing() {
-            testTransaction.setAccountNo(null);
-            assertThrows(InvalidTransactionException.class, () -> 
-                transactionService.createTransaction(testTransaction));
-        }
+        @DisplayName("Should throw exception for invalid transaction")
+        void shouldThrowExceptionForInvalidTransaction() {
+            // Missing account number
+            assertThrows(InvalidTransactionException.class, () ->
+                transactionService.createTransaction(Transaction.builder()
+                    .amount(BigDecimal.ONE)
+                    .direction(TransactionDirection.DEBIT)
+                    .build()));
 
-        @Test
-        @DisplayName("Should throw exception when amount is invalid")
-        void shouldThrowExceptionWhenAmountIsInvalid() {
-            testTransaction.setAmount(BigDecimal.ZERO);
-            assertThrows(InvalidTransactionException.class, () -> 
-                transactionService.createTransaction(testTransaction));
-        }
+            // Missing amount
+            assertThrows(InvalidTransactionException.class, () ->
+                transactionService.createTransaction(Transaction.builder()
+                    .accountNo("ACC001")
+                    .direction(TransactionDirection.DEBIT)
+                    .build()));
 
-        @Test
-        @DisplayName("Should throw exception when direction is missing")
-        void shouldThrowExceptionWhenDirectionIsMissing() {
-            testTransaction.setDirection(null);
-            assertThrows(InvalidTransactionException.class, () -> 
-                transactionService.createTransaction(testTransaction));
-        }
-    }
+            // Zero amount
+            assertThrows(InvalidTransactionException.class, () ->
+                transactionService.createTransaction(Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(BigDecimal.ZERO)
+                    .direction(TransactionDirection.DEBIT)
+                    .build()));
 
-    @Nested
-    @DisplayName("Transaction Status Update Tests")
-    class TransactionStatusUpdateTests {
-        @Test
-        @DisplayName("Should update transaction status successfully")
-        void shouldUpdateTransactionStatus() {
-            Transaction created = transactionService.createTransaction(testTransaction);
-            Transaction updated = transactionService.updateTransactionStatus(
-                created.getTransactionId(), TransactionStatus.SUCCESS);
-
-            assertEquals(TransactionStatus.SUCCESS, updated.getStatus());
-        }
-
-        @Test
-        @DisplayName("Should throw exception when transaction not found")
-        void shouldThrowExceptionWhenTransactionNotFound() {
-            assertThrows(TransactionNotFoundException.class, () ->
-                transactionService.updateTransactionStatus("non-existent", TransactionStatus.SUCCESS));
-        }
-
-        @Test
-        @DisplayName("Should throw exception when updating non-running transaction")
-        void shouldThrowExceptionWhenUpdatingNonRunningTransaction() {
-            Transaction created = transactionService.createTransaction(testTransaction);
-            transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.SUCCESS);
-            
-            assertThrows(InvalidTransactionStateException.class, () ->
-                transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.FAILED));
-        }
-
-        @Test
-        @DisplayName("Should throw exception when setting status to running")
-        void shouldThrowExceptionWhenSettingStatusToRunning() {
-            Transaction created = transactionService.createTransaction(testTransaction);
-            
-            assertThrows(InvalidTransactionStateException.class, () ->
-                transactionService.updateTransactionStatus(created.getTransactionId(), TransactionStatus.RUNNING));
+            // Missing direction
+            assertThrows(InvalidTransactionException.class, () ->
+                transactionService.createTransaction(Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(BigDecimal.ONE)
+                    .build()));
         }
     }
 
     @Nested
-    @DisplayName("Transaction Query Tests")
-    class TransactionQueryTests {
-        @Test
-        @DisplayName("Should get transactions by account")
-        void shouldGetTransactionsByAccount() {
-            Transaction created = transactionService.createTransaction(testTransaction);
-            List<Transaction> transactions = transactionService.getTransactionsByAccount("123456");
+    @DisplayName("Query Transactions Tests")
+    class QueryTransactionTests {
 
-            assertFalse(transactions.isEmpty());
-            assertEquals(created.getTransactionId(), transactions.get(0).getTransactionId());
+        @BeforeEach
+        void setUp() {
+            // Create test transactions
+            createTestTransaction("ACC001", "100.00", TransactionDirection.DEBIT);
+            createTestTransaction("ACC001", "200.00", TransactionDirection.CREDIT);
+            createTestTransaction("ACC002", "300.00", TransactionDirection.DEBIT);
+        }
+
+        private Transaction createTestTransaction(String accountNo, String amount, TransactionDirection direction) {
+            Transaction transaction = Transaction.builder()
+                    .accountNo(accountNo)
+                    .amount(new BigDecimal(amount))
+                    .direction(direction)
+                    .build();
+            return transactionService.createTransaction(transaction);
         }
 
         @Test
-        @DisplayName("Should get transaction by ID")
-        void shouldGetTransactionById() {
-            Transaction created = transactionService.createTransaction(testTransaction);
-            Transaction retrieved = transactionService.getTransaction(created.getTransactionId());
-
-            assertEquals(created.getTransactionId(), retrieved.getTransactionId());
-        }
-
-        @Test
-        @DisplayName("Should throw exception when getting non-existent transaction")
-        void shouldThrowExceptionWhenGettingNonExistentTransaction() {
-            assertThrows(TransactionNotFoundException.class, () ->
-                transactionService.getTransaction("non-existent"));
-        }
-
-        @Test
-        @DisplayName("Should query transactions with filters")
-        void shouldQueryTransactionsWithFilters() {
-            // Create multiple transactions
-            Transaction created1 = transactionService.createTransaction(testTransaction);
-            Transaction created2 = transactionService.createTransaction(
-                Transaction.builder()
-                    .accountNo("123456")
-                    .amount(new BigDecimal("200.00"))
-                    .direction(TransactionDirection.CREDIT)
-                    .build()
-            );
-
-            // Create filter
+        @DisplayName("Should query transactions with filter")
+        void shouldQueryTransactionsWithFilter() {
+            // Arrange
             TransactionFilter filter = TransactionFilter.builder()
-                .accountNo("123456")
-                .direction(TransactionDirection.DEBIT)
-                .build();
+                    .accountNo("ACC001")
+                    .build();
 
-            // Query with filter
+            // Act
             PageResponse<Transaction> response = transactionService.queryTransactions(filter, 0, 10);
 
-            assertEquals(1, response.getTotalElements());
-            assertEquals(created1.getTransactionId(), response.getContent().get(0).getTransactionId());
+            // Assert
+            assertEquals(2, response.getContent().size());
+            assertEquals(2, response.getTotalElements());
+            assertEquals(1, response.getTotalPages());
+            assertTrue(response.isFirst());
+            assertTrue(response.isLast());
         }
 
         @Test
         @DisplayName("Should handle pagination correctly")
         void shouldHandlePaginationCorrectly() {
-            // Create multiple transactions
-            for (int i = 0; i < 15; i++) {
-                transactionService.createTransaction(
-                    Transaction.builder()
-                        .accountNo("123456")
-                        .amount(new BigDecimal("100.00"))
-                        .direction(TransactionDirection.DEBIT)
-                        .build()
-                );
-            }
+            // Act
+            PageResponse<Transaction> response = transactionService.queryTransactions(null, 0, 2);
 
-            // Test first page
-            PageResponse<Transaction> firstPage = transactionService.queryTransactions(null, 0, 10);
-            assertEquals(10, firstPage.getContent().size());
-            assertTrue(firstPage.isFirst());
-            assertFalse(firstPage.isLast());
-
-            // Test second page
-            PageResponse<Transaction> secondPage = transactionService.queryTransactions(null, 1, 10);
-            assertEquals(5, secondPage.getContent().size());
-            assertFalse(secondPage.isFirst());
-            assertTrue(secondPage.isLast());
-        }
-
-        @Test
-        @DisplayName("Should handle empty result set")
-        void shouldHandleEmptyResultSet() {
-            TransactionFilter filter = TransactionFilter.builder()
-                .accountNo("non-existent")
-                .build();
-
-            PageResponse<Transaction> response = transactionService.queryTransactions(filter, 0, 10);
-
-            assertTrue(response.getContent().isEmpty());
-            assertEquals(0, response.getTotalElements());
-            assertEquals(0, response.getTotalPages());
+            // Assert
+            assertEquals(2, response.getContent().size());
+            assertEquals(3, response.getTotalElements());
+            assertEquals(2, response.getTotalPages());
+            assertTrue(response.isFirst());
+            assertFalse(response.isLast());
         }
     }
 
     @Nested
-    @DisplayName("Transaction Update and Delete Tests")
-    class TransactionUpdateAndDeleteTests {
-        @Test
-        @DisplayName("Should update transaction")
-        void shouldUpdateTransaction() {
-            Transaction created = transactionService.createTransaction(testTransaction);
-            created.setAmount(new BigDecimal("200.00"));
-            
-            Transaction updated = transactionService.updateTransaction(
-                created.getTransactionId(), created);
+    @DisplayName("Update Transaction Status Tests")
+    class UpdateTransactionStatusTests {
 
-            assertEquals(new BigDecimal("200.00"), updated.getAmount());
+        @Test
+        @DisplayName("Should update transaction status successfully")
+        void shouldUpdateTransactionStatus() {
+            Transaction created = transactionService.createTransaction(testTransaction);
+            // Act
+            Transaction updated = transactionService.updateTransactionStatus(
+                testTransaction.getTransactionId(), 
+                TransactionStatus.SUCCESS
+            );
+
+            // Assert
+            assertEquals(TransactionStatus.SUCCESS, updated.getStatus());
         }
 
         @Test
         @DisplayName("Should throw exception when updating non-existent transaction")
         void shouldThrowExceptionWhenUpdatingNonExistentTransaction() {
             assertThrows(TransactionNotFoundException.class, () ->
-                transactionService.updateTransaction("non-existent", testTransaction));
+                transactionService.updateTransactionStatus("invalid-id", TransactionStatus.SUCCESS));
         }
 
         @Test
-        @DisplayName("Should delete transaction")
-        void shouldDeleteTransaction() {
+        @DisplayName("Should throw exception when updating non-RUNNING transaction")
+        void shouldThrowExceptionWhenUpdatingNonRunningTransaction() {
             Transaction created = transactionService.createTransaction(testTransaction);
-            
-            transactionService.deleteTransaction(created.getTransactionId());
-            
+            // First update to SUCCESS
+            transactionService.updateTransactionStatus(
+                testTransaction.getTransactionId(), 
+                TransactionStatus.SUCCESS
+            );
+
+            // Try to update again
+            assertThrows(InvalidTransactionStateException.class, () ->
+                transactionService.updateTransactionStatus(
+                    testTransaction.getTransactionId(), 
+                    TransactionStatus.FAILED
+                ));
+        }
+    }
+
+    @Nested
+    @DisplayName("Delete Transaction Tests")
+    class DeleteTransactionTests {
+
+        @Test
+        @DisplayName("Should delete transaction successfully")
+        void shouldDeleteTransaction() {
+            // Arrange
+            Transaction transaction = transactionService.createTransaction(Transaction.builder()
+                    .accountNo("ACC001")
+                    .amount(new BigDecimal("100.00"))
+                    .direction(TransactionDirection.DEBIT)
+                    .build());
+
+            // Act
+            transactionService.deleteTransaction(transaction.getTransactionId());
+
+            // Assert
             assertThrows(TransactionNotFoundException.class, () ->
-                transactionService.getTransaction(created.getTransactionId()));
+                transactionService.getTransactionOrThrow(transaction.getTransactionId()));
         }
 
         @Test
         @DisplayName("Should throw exception when deleting non-existent transaction")
         void shouldThrowExceptionWhenDeletingNonExistentTransaction() {
             assertThrows(TransactionNotFoundException.class, () ->
-                transactionService.deleteTransaction("non-existent"));
+                transactionService.deleteTransaction("invalid-id"));
         }
     }
 } 

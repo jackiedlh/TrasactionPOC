@@ -1,16 +1,20 @@
 package com.hsbc.transaction.service;
 
 import java.math.BigDecimal;
-import java.util.Map;
+
+import org.springframework.transaction.annotation.Transactional;
+
+import com.hsbc.transaction.model.Transaction;
 
 public interface AccountService {
-    Map<String, BigDecimal> getAccountBalances();
-
-
-    void setAccountBalances(Map<String, BigDecimal> accountBalances);
 
     BigDecimal getBalance(String accountNo);
-    void setBalance(String accountNo, BigDecimal amount);
     void credit(String accountNo, BigDecimal amount);
+
+    @Transactional
+    void createAccount(String accountNo, BigDecimal initBalance);
+
     void debit(String accountNo, BigDecimal amount);
-} 
+
+    void updateAccountBalance(Transaction transaction);
+}

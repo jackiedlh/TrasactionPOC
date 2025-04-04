@@ -52,4 +52,28 @@ public class Transaction {
                 .timestamp(LocalDateTime.now())
                 .build();
     }
+
+    public static Transaction coloneTransaction(Transaction transaction, TransactionStatus status) {
+        return Transaction.builder()
+                .transactionId(transaction.getTransactionId())
+                .accountNo(transaction.accountNo)
+                .amount(transaction.getAmount())
+                .description(transaction.getDescription())
+                .direction(transaction.getDirection())
+                .status(status!=null? status:transaction.getStatus())
+                .timestamp(transaction.getTimestamp())
+                .build();
+    }
+
+    public static Transaction revertTransaction(Transaction transaction) {
+        return Transaction.builder()
+                .transactionId(transaction.getTransactionId())
+                .accountNo(transaction.accountNo)
+                .amount(transaction.getAmount())
+                .description(transaction.getDescription())
+                .direction(transaction.getDirection()==TransactionDirection.DEBIT?TransactionDirection.CREDIT:TransactionDirection.DEBIT)
+                .status(transaction.getStatus())
+                .timestamp(transaction.getTimestamp())
+                .build();
+    }
 } 

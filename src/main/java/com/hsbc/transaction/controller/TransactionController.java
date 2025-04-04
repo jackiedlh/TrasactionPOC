@@ -40,18 +40,7 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.updateTransactionStatus(id, status));
     }
 
-    @GetMapping("/account/{accountNo}")
-    @Operation(summary = "Get all transactions for an account")
-    public ResponseEntity<List<Transaction>> getTransactionsByAccount(
-            @PathVariable String accountNo) {
-        return ResponseEntity.ok(transactionService.getTransactionsByAccount(accountNo));
-    }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "Get a transaction by ID")
-    public ResponseEntity<Transaction> getTransaction(@PathVariable String id) {
-        return ResponseEntity.ok(transactionService.getTransaction(id));
-    }
 
     @GetMapping
     @Operation(summary = "Query transactions with optional filters and pagination")
@@ -89,11 +78,11 @@ public class TransactionController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update an existing transaction")
+    @Operation(summary = "Update an existing transaction status")
     public ResponseEntity<Transaction> updateTransaction(
             @PathVariable String id,
-            @RequestBody Transaction transaction) {
-        return ResponseEntity.ok(transactionService.updateTransaction(id, transaction));
+            @RequestBody TransactionStatus transactionStatus) {
+        return ResponseEntity.ok(transactionService.updateTransactionStatus(id, transactionStatus));
     }
 
     @DeleteMapping("/{id}")

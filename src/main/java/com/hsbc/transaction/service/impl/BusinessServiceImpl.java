@@ -1,59 +1,63 @@
 package com.hsbc.transaction.service.impl;
 
-import com.hsbc.transaction.model.Transaction;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.hsbc.transaction.model.TransactionDirection;
-import com.hsbc.transaction.model.TransactionStatus;
 import com.hsbc.transaction.service.AccountService;
-import com.hsbc.transaction.service.BusinessService;
-import com.hsbc.transaction.service.TransactionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
+import com.hsbc.transaction.model.Transaction;
+import com.hsbc.transaction.model.TransactionStatus;
+import com.hsbc.transaction.service.BusinessService;
+import com.hsbc.transaction.service.TransactionService;
 
 @Service
 public class BusinessServiceImpl implements BusinessService {
-    private final AccountService accountService;
+    private static final Logger logger = LoggerFactory.getLogger(BusinessServiceImpl.class);
+
+    @Autowired
     private final TransactionService transactionService;
 
-    public BusinessServiceImpl(AccountService accountService, TransactionService transactionService) {
-        this.accountService = accountService;
+    @Autowired
+    private AccountService accountService;
+
+    public BusinessServiceImpl(TransactionService transactionService) {
         this.transactionService = transactionService;
     }
 
     @Override
     @Transactional
-    public synchronized void transfer(String fromAccount, String toAccount, BigDecimal amount, String description) {
-        try {
+    public void combine(List<Transaction> transactions) {
+        processCombineTransactions(transactions);
+    }
 
-            // Create debit transaction record
-            Transaction debitTransaction = Transaction.builder()
-                    .accountNo(fromAccount)
-                    .amount(amount)
-                    .description(description + " - Transfer to " + toAccount)
-                    .direction(TransactionDirection.DEBIT)
-                    .status(TransactionStatus.RUNNING)
-                    .build();
-
-            // Create credit transaction record
-            Transaction creditTransaction = Transaction.builder()
-                    .accountNo(toAccount)
-                    .amount(amount)
-                    .description(description + " - Transfer from " + fromAccount)
-                    .direction(TransactionDirection.CREDIT)
-                    .status(TransactionStatus.RUNNING)
-                    .build();
-
-            // Record both transactions
-            transactionService.createTransaction(debitTransaction);
-            transactionService.createTransaction(creditTransaction);
-
-            transactionService.updateTransactionStatus(debitTransaction.getTransactionId(),TransactionStatus.SUCCESS);
-            transactionService.updateTransactionStatus(creditTransaction.getTransactionId(),TransactionStatus.SUCCESS);
+    private void processCombineTransactions(List<Transaction> transactions) {
+        List<Transaction> originalTransactions = new ArrayList<>();
+        for (Transaction transaction : transactions) {
+            transactionService.createTransaction(transaction);
+            transactionService.updateTransactionStatus(transaction.getTransactionId(), TransactionStatus.SUCCESS);
+            accountService.updateAccountBalance(transaction);
 
 
-        } catch (Exception e) {
-            throw new RuntimeException("Transfer failed: " + e.getMessage(), e);
         }
     }
-} 
+
+    private void updateAccountBalance(Transaction transaction) {
+        String accountNo = transaction.getAccountNo();
+        BigDecimal amount = transaction.getAmount();
+
+        if (transaction.getDirection() == TransactionDirection.DEBIT) {
+            accountService.debit(accountNo, amount);
+            logger.info("Debited {} from account {}", amount, accountNo);
+        } else if (transaction.getDirection() == TransactionDirection.CREDIT) {
+            accountService.credit(accountNo, amount);
+            logger.info("Credited {} to account {}", amount, accountNo);
+        }
+    }
+}
